@@ -1,0 +1,2548 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>La Estacion YMD</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    /* === デザインは変更していません（見た目そのまま） === */
+    body {
+      margin: 0;
+      font-family: "Segoe UI", sans-serif;
+      background: #f4f6f8;
+      color: #333;
+    }
+    /* ログイン画面 */
+    #login-page {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background: #e9ecef;
+    }
+    .login-box {
+      background: #fff;
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      text-align: center;
+      width: 300px;
+    }
+    .login-box h2 { margin-bottom: 1rem; }
+    .login-box input {
+      width: 100%;
+      padding: 0.6rem;
+      margin: 0.5rem 0;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+    }
+    .login-box button {
+      width: 100%;
+      padding: 0.6rem;
+      margin-top: 1rem;
+      border: none;
+      border-radius: 6px;
+      background: #28a745;
+      color: #fff;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    .login-box button:hover { background: #218838; }
+    .error { color: red; font-size: 0.9rem; margin-top: 0.5rem; }
+
+    /* メインページ（レイアウトは絶対に変えない） */
+    #main-page { display: none; height: 100vh; }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #2c3e50;
+      color: #fff;
+      padding: 0.8rem 1.2rem;
+    }
+    .logo { font-size: 1.2rem; font-weight: bold; }
+    .user-info { display:flex; align-items:center; gap:1rem; }
+    #session-timer { font-size: 0.95rem; color:#f1c40f; } /* 追加表示（見た目に溶けるよう控えめ） */
+    #test-timer { font-size:0.95rem; color:#2ecc71; font-weight:bold; margin-left:8px; } /* テストタイマー（右上表示） */
+    .logout-btn {
+      background: #e74c3c;
+      border: none;
+      padding: 0.4rem 0.8rem;
+      color: #fff;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .logout-btn:hover { background: #c0392b; }
+
+    main { display:flex; height: calc(100vh - 50px); }
+    nav {
+      width: 200px;
+      background: #34495e;
+      color: #fff;
+      padding-top: 1rem;
+    }
+    nav ul { list-style:none; padding:0; margin:0; }
+    nav ul li {
+      padding: 0.8rem 1rem;
+      cursor: pointer;
+    }
+    nav ul li:hover { background: #3d566e; }
+    nav ul li.disabled { opacity: 0.4; pointer-events: none; } /* テスト中は無効化 */
+    section { flex: 1; padding: 2rem; overflow-y: auto; }
+
+    .card { background:#fff; border-radius:10px; padding:18px; box-shadow:0 4px 12px rgba(0,0,0,0.06); margin-bottom:16px; }
+    .q-block{ border:1px solid #e7eef2; padding:12px; border-radius:8px; margin-bottom:12px; background:#fbfdff; }
+    .choice-row{ display:flex; gap:8px; align-items:center; margin:6px 0; }
+    .choice-row input[type="text"]{ flex:1; padding:8px; border-radius:6px; border:1px solid #d0d7dc; }
+    .choice-row input[type="number"]{ width:100px; padding:8px; border-radius:6px; border:1px solid #d0d7dc; }
+    .choice-row select{ width:120px; padding:8px; border-radius:6px; border:1px solid #d0d7dc; }
+    .btn-plain{ padding:8px 10px; border-radius:6px; border:0; cursor:pointer; }
+    .btn-primary{ background:#2c3e50; color:#fff; }
+    .btn-danger{ background:#e74c3c; color:#fff; }
+    .hidden{ display:none !important; }
+
+    /* small helper for edit buttons list */
+    .part-item { border:1px solid #eef3f5; padding:12px; border-radius:8px; margin-bottom:12px; background:#fff; }
+    .part-actions { margin-top:8px; display:flex; gap:8px; }
+
+    /* トロフィーアニメーション */
+    .trophy-anim {
+      animation: shine 2s infinite linear;
+      display: inline-block;
+    }
+    @keyframes shine {
+      0%   { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 2px rgba(255,255,255,0.5)); }
+      25%  { transform: scale(1.1) rotate(-5deg); filter: drop-shadow(0 0 6px rgba(255,255,255,0.8)); }
+      50%  { transform: scale(1.2) rotate(5deg); filter: drop-shadow(0 0 12px rgba(255,255,255,1)); }
+      75%  { transform: scale(1.1) rotate(-5deg); filter: drop-shadow(0 0 6px rgba(255,255,255,0.8)); }
+      100% { transform: scale(1) rotate(0deg); filter: drop-shadow(0 0 2px rgba(255,255,255,0.5)); }
+    }
+
+/* --- bnp pill --- */
+#bnp-display{
+  background: #fff;
+  color: #2c3e50;
+  padding: 6px 30px;
+  border-radius: 999px; /* 半円形 */
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  min-width:88px;
+  justify-content:flex-end; /* 数字は右寄せ */
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  font-weight:700;
+  margin-right: 8px; /* user-info 内の余白 */
+}
+#bnp-value{ font-size:1.05em; }
+#bnp-unit{ font-size:0.85em; color:#666; padding-left:4px; }
+
+/* 文法特訓の設問文 → スペースや改行を保持 */
+.grammar-question-text {
+  white-space: pre-wrap;
+}
+
+/* 並べ替え問題のUI */
+#answer-area {
+  border:2px solid black;
+  padding:8px;
+  min-height:40px;
+  margin-bottom:10px;
+}
+
+
+  </style>
+
+  <!-- Font Awesome 読み込み（トロフィーアイコン用） -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+
+<body>
+  <!-- ログイン -->
+  <div id="login-page">
+    <div class="login-box">
+      <h2>ログイン</h2>
+      <form id="login-form">
+        <input type="text" id="login-id" placeholder="ユーザーID" required>
+        <input type="password" id="login-password" placeholder="パスワード" required>
+        <button type="submit">ログイン</button>
+      </form>
+      <div id="login-error" class="error"></div>
+      <div style="margin-top:8px;font-size:12px;color:#666">
+        管理者: aduser0110 / ad84536172　｜　一般: user0110 または user011001〜user011007 / assalam
+      </div>
+    </div>
+  </div>
+
+  <!-- メイン -->
+  <div id="main-page">
+    <header>
+      <div class="logo">📘 La Estacion YMD</div>
+      <div class="user-info" aria-live="polite">
+<!-- 既存の .user-info の一番上（または user-name の左）に追加 -->
+<div id="bnp-display" title="獲得バナポ">
+  <span id="bnp-value">0</span>
+  <span id="bnp-unit"> bnp</span>
+</div>
+        <span id="user-name">—</span>
+        <span id="session-timer">残り: 60:00</span>
+        <span id="test-timer" class="hidden">テスト残り: 15:00</span> <!-- テスト中のみ表示 -->
+        <button id="logout-btn" class="logout-btn">ログアウト</button>
+      </div>
+    </header>
+
+    <main>
+      <nav>
+        <ul>
+          <li id="menu-userinfo">ユーザー情報</li>
+          <li id="menu-test">テスト</li>
+          <li id="menu-history">過去の成績</li>
+          <li id="menu-audio">音声コンテンツ</li>
+          <li id="menu-studylog">学習の記録</li>
+          <li id="menu-create" class="hidden">問題作成</li>
+          <li id="menu-list" class="hidden">問題一覧</li>
+          <li id="menu-grammar-admin" class="hidden">文法問題作成</li>
+          <li id="menu-useradmin" class="hidden">ユーザー管理</li>
+        </ul>
+      </nav>
+      <section id="content">
+        <div class="card"><h2>ようこそ！</h2><p>左のメニューから操作を選んでください。</p></div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Firebase SDK + 機能追加（モジュール） -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+    import {
+      getFirestore, collection, getDocs, doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, query, where, orderBy
+    } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js";
+    import { getStorage, ref as storageRef, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-storage.js";
+
+
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAIg8mvIn8K5qDfP_ozemtZRqKIEioTfMY",
+      authDomain: "la-estacion-ymd.firebaseapp.com",
+      projectId: "la-estacion-ymd",
+      storageBucket: "la-estacion-ymd.firebasestorage.app",
+      messagingSenderId: "996153459691",
+      appId: "1:996153459691:web:5d9054f92f521fb8388fae",
+      measurementId: "G-QKD7SC860Y"
+    };
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // === ユーザー固定情報 ===
+    const users = {
+      "aduser0110": { password: "ad84536172", role: "admin" },
+      "user0110":   { password: "assalam", role: "user" },
+      "user011001": { password: "assalam", role: "user" },
+      "user011002": { password: "assalam", role: "user" },
+      "user011003": { password: "assalam", role: "user" },
+      "user011004": { password: "assalam", role: "user" },
+      "user011005": { password: "assalam", role: "user" },
+      "user011006": { password: "assalam", role: "user" },
+      "user011007": { password: "assalam", role: "user" }
+    };
+
+    let currentUser = null;
+
+    // ===== セッションカウントダウン（既存仕様） =====
+    let idleSeconds = 60 * 60;
+    let idleInterval = null;
+    function startSessionCountdown(){
+      idleSeconds = 60 * 60;
+      if(idleInterval) clearInterval(idleInterval);
+      updateSessionDisplay();
+      idleInterval = setInterval(()=>{
+        idleSeconds--;
+        updateSessionDisplay();
+        if(idleSeconds <= 0){
+          clearInterval(idleInterval);
+          idleInterval = null;
+          alert('60分無操作のため自動ログアウトします。');
+          doLogout();
+        }
+      }, 1000);
+    }
+    function updateSessionDisplay(){
+      const mm = String(Math.floor(idleSeconds/60)).padStart(2,'0');
+      const ss = String(idleSeconds % 60).padStart(2,'0');
+      const el = document.getElementById('session-timer');
+      if(el) el.textContent = `残り: ${mm}:${ss}`;
+    }
+    function resetIdle(){ idleSeconds = 60 * 60; updateSessionDisplay(); }
+    ['mousemove','keydown','click','touchstart','scroll'].forEach(ev=>{
+      document.addEventListener(ev, ()=>{ if(currentUser) resetIdle(); }, {passive:true});
+    });
+
+    // ===== ログイン =====
+    document.getElementById('login-form').addEventListener('submit', e=>{
+      e.preventDefault();
+      const id = document.getElementById('login-id').value.trim();
+      const pw = document.getElementById('login-password').value.trim();
+      const errEl = document.getElementById('login-error');
+      errEl.textContent = '';
+      if(!id || !pw){ errEl.textContent = 'IDとパスワードを入力してください'; return; }
+      if(users[id] && users[id].password === pw){
+        currentUser = { id, role: users[id].role };
+        showMain();
+      } else {
+        errEl.textContent = 'IDまたはパスワードが違います';
+      }
+    });
+
+    // ===== 表示切替（ログイン成功時） =====
+    function showMain(){
+      document.getElementById('login-page').style.display = 'none';
+      document.getElementById('main-page').style.display = 'block';
+      document.getElementById('user-name').textContent = currentUser.id;
+      // 管理者メニュー表示制御
+      if(currentUser.role === 'admin'){
+        document.getElementById('menu-create').classList.remove('hidden');
+        document.getElementById('menu-list').classList.remove('hidden');
+        document.getElementById('menu-useradmin').classList.remove('hidden');
+        document.getElementById('menu-grammar-admin').classList.remove('hidden');
+      } else {
+        document.getElementById('menu-create').classList.add('hidden');
+        document.getElementById('menu-list').classList.add('hidden');
+        document.getElementById('menu-useradmin').classList.add('hidden');
+        document.getElementById('menu-grammar-admin').classList.add('hidden');
+      }
+      // start session countdown
+      startSessionCountdown();
+      // default content (test menu)
+      renderTestMenu();
+    }
+
+    // ===== ログアウト =====
+    document.getElementById('logout-btn').addEventListener('click', ()=> {
+      if(confirm('ログアウトしますか？')) doLogout();
+    });
+    function doLogout(){
+      // stop test if running
+      if(testActive) {
+        stopTest(); // stop timers and UI
+      }
+      currentUser = null;
+      if(idleInterval){ clearInterval(idleInterval); idleInterval = null; }
+      document.getElementById('main-page').style.display = 'none';
+      document.getElementById('login-page').style.display = 'flex';
+      document.getElementById('login-form').reset();
+      // reset display
+      document.getElementById('session-timer').textContent = '残り: 60:00';
+      document.getElementById('content').innerHTML = `<div class="card"><h2>ようこそ！</h2><p>左のメニューから操作を選んでください。</p></div>`;
+    }
+
+    // ===== サイドメニュー動作（そのまま） =====
+    document.getElementById('menu-test').addEventListener('click', ()=> { if(!testActive) renderTestMenu(); });
+    document.getElementById('menu-history').addEventListener('click', ()=> { if(!testActive) renderHistory(); });
+    document.getElementById('menu-create').addEventListener('click', ()=> { if(!testActive) renderCreateForm(); });
+    document.getElementById('menu-list').addEventListener('click', ()=> { if(!testActive) loadPartsList(); });
+    document.getElementById('menu-useradmin').addEventListener('click', ()=> { if(!testActive) renderUserManagement(); });
+    document.getElementById('menu-grammar-admin').addEventListener('click', ()=> { if(!testActive) renderGrammarAdminHome(); });
+
+
+    // ===== テストメニュー（雛形） =====
+    function renderTestMenu(){
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <h2>テスト</h2>
+      <div class="card" style="padding:12px;">
+        <div style="display:flex;gap:12px;flex-wrap:wrap">
+          <div style="min-width:200px;flex:1" class="card">
+            <h3 style="margin:0 0 8px 0">速読力測定テスト</h3>
+            <button class="btn-plain btn-primary" id="start-speed">テストを始める</button>
+          </div>
+          <div style="min-width:200px;flex:1" class="card">
+            <h3 style="margin:0 0 8px 0">文法特訓</h3>
+            <button class="btn-plain btn-primary" id="start-grammar">特訓開始</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+  // 既存の start-speed ハンドラは残す（A2 の他の場所でも拾っているが二重登録を避ける）
+  const startBtn = document.getElementById('start-speed');
+  if(startBtn) startBtn.addEventListener('click', async ()=> {
+    if(confirm('テストを開始します。制限時間は15分です。')) await startTest();
+  });
+
+  const grammarBtn = document.getElementById('start-grammar');
+  if(grammarBtn) grammarBtn.addEventListener('click', async ()=> {
+    if(confirm('文法特訓を開始します。50問連続で出題されます。')) {
+      await startGrammarTraining();
+    }
+  });
+}
+
+    // ---------- 過去の成績（テスト種別選択 + 履歴表示） ----------
+function renderHistory(){
+  // まず種別選択カードを表示
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <h2>過去の成績</h2>
+      <p>閲覧したいテストの種類を選んでください。</p>
+      <div id="history-type-cards" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;">
+        <div class="card" style="flex:1;min-width:180px;cursor:pointer" data-type="速読力測定テスト">速読力測定テスト</div>
+        <div class="card" style="flex:1;min-width:180px;cursor:pointer" data-type="文法特訓">文法特訓</div>
+        <div class="card" style="flex:1;min-width:180px;cursor:pointer;opacity:0.6">単語テスト（未実装）</div>
+        <div class="card" style="flex:1;min-width:180px;cursor:pointer;opacity:0.6">リスニング特訓（未実装）</div>
+      </div>
+      <div id="history-list" style="margin-top:16px;"></div>
+    </div>
+  `;
+
+  // 有効なカードだけクリックを有効化（今は「速読力測定テスト」だけ）
+  const cardContainer = document.getElementById('history-type-cards');
+  if(!cardContainer) return;
+  const cards = cardContainer.querySelectorAll('div[data-type]');
+  cards.forEach(card => {
+    card.addEventListener('click', () => {
+      // 見た目の選択ハイライト
+      cards.forEach(c=> c.style.boxShadow = 'none');
+      card.style.boxShadow = '0 6px 18px rgba(0,0,0,0.12)';
+      // 読み込み
+      const type = card.getAttribute('data-type');
+      loadHistory(type);
+    });
+  });
+}
+
+// --- 回答オブジェクトを正規化するヘルパ ---
+function normalizeAnswer(a){
+  // a: データベースから来る元のオブジェクト（古い形式・新しい形式どちらでも）
+  const selected = (a && (a.selected !== undefined ? a.selected : (a.userAnswer !== undefined ? a.userAnswer : (a.selectedValue !== undefined ? a.selectedValue : null)))) || null;
+  const correctAnswers = (a && (a.correctAnswer || a.correctAnswers || a.answer || []));
+  // isCorrect があれば優先、なければ correct (boolean) を使う
+  let isCorrect = (a && typeof a.isCorrect === 'boolean') ? a.isCorrect : (a && typeof a.correct === 'boolean' ? a.correct : null);
+
+  if(isCorrect === null){
+    // 自動判定（selected が null => 未解答とする）
+    if(selected === null || selected === undefined || selected === ''){
+      isCorrect = false;
+    } else {
+      // selected が配列かどうかで判定を分ける
+      if(Array.isArray(correctAnswers) && Array.isArray(selected)){
+        // 配列同士をトリムして比較（順序まで一致）
+        const eq = selected.length === correctAnswers.length &&
+                   selected.every((v,i)=>String(v).trim().toLowerCase() === String(correctAnswers[i]).trim().toLowerCase());
+        isCorrect = !!eq;
+      } else if(Array.isArray(correctAnswers)){
+        // correctAnswers のいずれかに selected が一致すれば正解
+        isCorrect = correctAnswers.some(c => String(c).trim().toLowerCase() === String(selected).trim().toLowerCase());
+      } else {
+        isCorrect = false;
+      }
+    }
+  }
+
+  return {
+    question: a && (a.question || a.q || '') || '',
+    selected,
+    correctAnswers: Array.isArray(correctAnswers) ? correctAnswers : (correctAnswers ? [correctAnswers] : []),
+    isCorrect: !!isCorrect,
+    score: (a && (a.score || 0)) || 0
+  };
+}
+
+async function showSavedResult(docId){
+  if(!docId) return;
+  const content = document.getElementById('content');
+  if(!content) return;
+  content.innerHTML = `<div class="card"><h2>詳細を読み込み中...</h2></div>`;
+
+  try{
+    const dSnap = await getDoc(doc(db,'results',docId));
+    if(!dSnap.exists()){
+      content.innerHTML = `<div class="card"><h2>該当の記録が見つかりません</h2></div>`;
+      return;
+    }
+    const d = dSnap.data();
+    const created = formatDateForDisplay(d.createdAt);
+
+    let html = `<div class="card">
+      <h2>テスト結果の詳細</h2>
+      <div style="margin-top:8px;">
+        <p><strong>テスト種別:</strong> ${escapeHtml(d.testType || d.type || '')}</p>
+        <p><strong>スコア:</strong> ${escapeHtml(String(d.score || 0))} 点</p>
+        <p><strong>WPM:</strong> ${Number(d.wpm || 0).toFixed(2)}</p>
+        <p><strong>経過秒数:</strong> ${escapeHtml(String(d.elapsed || 0))} 秒</p>
+        <p><strong>総単語数:</strong> ${escapeHtml(String(d.totalWords != null ? d.totalWords : ''))}</p>
+        <p style="color:#999;"><strong>保存日時:</strong> ${escapeHtml(created)}</p>
+      </div>
+      <hr style="margin:12px 0;" />
+      <h3>設問ごとの解答</h3>
+    `;
+
+    const answersRaw = Array.isArray(d.answers) ? d.answers : [];
+    if(answersRaw.length === 0){
+      html += `<div style="color:#666;padding:12px;border:1px dashed #eef3f5;border-radius:8px">設問ごとの記録はありません。</div>`;
+    } else {
+      answersRaw.forEach((a, idx) => {
+        const n = normalizeAnswer(a);
+        const status = n.selected === null || n.selected === undefined || n.selected === '' ? '未解答' : (n.isCorrect ? '⭕ 正解' : '❌ 不正解');
+        const color = n.selected === null || n.selected === undefined || n.selected === '' ? 'gray' : (n.isCorrect ? 'green' : 'red');
+
+        html += `<div style="margin:8px 0; padding:8px; border-left:4px solid ${color}; background:#fff;">
+          <p><strong>Q${idx+1}:</strong> ${escapeHtml(n.question || '')}</p>
+          <p><strong>あなたの解答:</strong> ${escapeHtml(Array.isArray(n.selected) ? n.selected.join(' / ') : (n.selected || 'なし'))}</p>
+          <p><strong>正しい答え:</strong> ${escapeHtml((n.correctAnswers || []).join(' / '))}</p>
+          <p style="color:${color}; font-weight:bold;">${status}</p>
+        </div>`;
+      });
+    }
+
+    html += `<div style="text-align:right; margin-top:12px;">
+        <button class="btn-plain btn-primary" id="back-history-btn">一覧に戻る</button>
+      </div></div>`;
+
+    content.innerHTML = html;
+
+    document.getElementById('back-history-btn').addEventListener('click', ()=> {
+      renderHistory();
+    });
+
+  }catch(err){
+    console.error('showSavedResult error', err);
+    content.innerHTML = `<div class="card"><h2>読み込み中にエラーが発生しました</h2><div style="color:#c00">${escapeHtml(err.message || err)}</div></div>`;
+  }
+}
+
+
+
+// ヘルパ: createdAt が Timestamp か Date か判定して表示用に文字列化
+function formatDateForDisplay(createdAt){
+  if(!createdAt) return '';
+  // Firestore Timestamp の場合
+  if(typeof createdAt.toDate === 'function') {
+    return createdAt.toDate().toLocaleString();
+  }
+  // Date オブジェクトや ISO 文字列等
+  try {
+    const d = (createdAt instanceof Date) ? createdAt : new Date(createdAt);
+    return isNaN(d.getTime()) ? '' : d.toLocaleString();
+  } catch(e){ return ''; }
+}
+
+async function loadHistory(type){
+  if(!currentUser){
+    alert('ログインしてください');
+    return;
+  }
+  const container = document.getElementById('history-list');
+  if(!container) return;
+  container.innerHTML = '<div style="color:#666">読み込み中...</div>';
+
+  try{
+    const q = query(
+      collection(db,'results'),
+      where('uid','==', currentUser.id),
+      where('type','==', type),
+      orderBy('createdAt','desc')
+    );
+    const snap = await getDocs(q);
+    if(snap.empty){
+      container.innerHTML = `<div style="color:#666;padding:12px;border:1px dashed #eef3f5;border-radius:8px">該当する履歴はありません。</div>`;
+      return;
+    }
+
+    let html = '<div style="display:flex;flex-direction:column;gap:8px;">';
+    snap.forEach(docSnap=>{
+      const d = docSnap.data();
+      const created = formatDateForDisplay(d.createdAt);
+      html += `
+        <div style="padding:12px;border:1px solid #eef3f5;border-radius:8px;background:#fff;display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:700">${escapeHtml(type)}</div>
+            <div style="font-size:14px;color:#666;margin-top:6px;">${escapeHtml(String(d.score || 0))} 点 • WPM: ${Number(d.wpm || 0).toFixed(2)} • ${escapeHtml(String(d.elapsed || 0))} 秒</div>
+            <div style="font-size:12px;color:#999;margin-top:6px;">${escapeHtml(created)}</div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:6px;">
+            <button class="btn-plain" data-id="${docSnap.id}" data-action="detail">くわしく見る</button>
+            <button class="btn-plain" data-id="${docSnap.id}" data-action="download" style="display:none">ダウンロード</button>
+          </div>
+        </div>
+      `;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+
+    // attach handlers
+    container.querySelectorAll('button[data-action="detail"]').forEach(btn=>{
+      btn.addEventListener('click', ()=> showSavedResult(btn.getAttribute('data-id')));
+    });
+
+  }catch(err){
+    console.error('loadHistory error', err);
+    container.innerHTML = `<div style="color:#c00">履歴の読み込みに失敗しました: ${escapeHtml(err.message || err)}</div>`;
+  }
+}
+
+    // ===== 問題作成（以前のひな形そのまま） =====
+    function renderCreateForm(){
+      document.getElementById('content').innerHTML = `
+        <div class="card">
+          <h2>問題作成（管理者）</h2>
+          <div>
+            <label>英文（Passage）</label>
+            <textarea id="part-passage" rows="6" style="width:100%; padding:8px; border-radius:6px; border:1px solid #d0d7dc;"></textarea>
+          </div>
+          <div id="questions-area" style="margin-top:12px;"></div>
+          <div style="margin-top:10px; display:flex; gap:8px;">
+            <button id="add-question" class="btn-plain btn-primary">設問を追加</button>
+            <button id="save-part" class="btn-plain" style="background:#2c3e50;color:#fff">保存</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('add-question').addEventListener('click', ()=> addQuestionBlock());
+      document.getElementById('save-part').addEventListener('click', ()=> savePartToFirestore());
+      addQuestionBlock();
+    }
+
+    function addQuestionBlock(){
+      const qArea = document.getElementById('questions-area');
+      const div = document.createElement('div');
+      div.className = 'q-block';
+      div.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <strong>設問</strong>
+          <div>
+            <button class="btn-plain btn-danger btn-delete-q" type="button">設問を削除</button>
+          </div>
+        </div>
+        <input class="q-text" type="text" placeholder="設問文を入力" style="width:100%; margin-top:8px; padding:8px; border-radius:6px; border:1px solid #d0d7dc;" />
+        <div class="choices-area" style="margin-top:8px;"></div>
+        <div style="margin-top:6px;">
+          <button class="btn-plain btn-secondary btn-add-choice" type="button">選択肢を追加</button>
+        </div>
+      `;
+      qArea.appendChild(div);
+      div.querySelector('.btn-delete-q').addEventListener('click', ()=> div.remove());
+      div.querySelector('.btn-add-choice').addEventListener('click', ()=> addChoiceRow(div));
+      // add two default choices
+      addChoiceRow(div); addChoiceRow(div);
+    }
+
+    function addChoiceRow(qBlock, choice=null){
+      const area = qBlock.querySelector('.choices-area');
+      const div = document.createElement('div');
+      div.className = 'choice-row';
+      div.innerHTML = `
+        <input type="text" class="choice-text" placeholder="選択肢テキスト"/>
+        <input type="number" class="choice-score" placeholder="スコア" value="0" />
+        <select class="choice-correct">
+          <option value="false">不正解</option>
+          <option value="true">正解</option>
+        </select>
+        <button class="btn-plain btn-danger btn-del-choice" type="button">削除</button>
+      `;
+      area.appendChild(div);
+      div.querySelector('.btn-del-choice').addEventListener('click', ()=> div.remove());
+      if(choice){
+        div.querySelector('.choice-text').value = choice.text || '';
+        div.querySelector('.choice-score').value = (choice.score!=null) ? choice.score : 0;
+        div.querySelector('.choice-correct').value = choice.correct ? 'true' : 'false';
+      }
+    }
+
+    // ===== Firestore: 保存（addDoc） =====
+    async function savePartToFirestore(){
+      const passage = document.getElementById('part-passage').value.trim();
+      if(!passage){ alert('英文を入力してください'); return; }
+      const qNodes = document.querySelectorAll('.q-block');
+      const questions = [];
+      qNodes.forEach(q=>{
+        const text = q.querySelector('.q-text').value.trim();
+        const choices = [];
+        q.querySelectorAll('.choice-row').forEach(c=>{
+          const chText = c.querySelector('.choice-text').value.trim();
+          const chScore = Number(c.querySelector('.choice-score').value || 0);
+          const chCorrect = c.querySelector('.choice-correct') ? (c.querySelector('.choice-correct').value === 'true') : false;
+          choices.push({ text: chText, score: chScore, correct: chCorrect });
+        });
+        if(text) questions.push({ text, choices });
+      });
+      if(questions.length===0){ alert('設問を入力してください'); return; }
+
+      try{
+        await addDoc(collection(db,'parts'), {
+          passage,
+          questions,
+          createdBy: currentUser ? currentUser.id : 'unknown',
+          createdAt: new Date()
+        });
+        alert('保存しました！');
+        renderCreateForm();
+      }catch(err){
+        console.error(err);
+        alert('保存に失敗しました: ' + (err.message || err));
+      }
+    }
+
+   
+
+// ===== テスト実装部分（改良・置換用） =====
+let testActive = false;
+let testStartTime = 0;
+let testRemaining = 0;
+let testTimerInterval = null;
+let partPool = []; // all parts from Firestore
+let usedIds = [];
+let totalWords = 0;
+let obtainedScore = 0;
+let fullScore = 0;
+let answers = []; // 解答ログを保存
+
+function disableMenus(flag){
+  ['menu-test','menu-history','menu-create','menu-list'].forEach(id=>{
+    const el = document.getElementById(id);
+    if(!el) return;
+    if(flag) el.classList.add('disabled'); else el.classList.remove('disabled');
+  });
+}
+
+async function startTest(){
+  console.log('DEBUG: startTest called');
+  const snap = await getDocs(collection(db,'parts'));
+  partPool = [];
+  snap.forEach(doc => partPool.push({ id: doc.id, ...doc.data() }));
+  if(partPool.length === 0){ alert('まだ問題が作成されていません。'); return; }
+
+  // init
+  testActive = true;
+  usedIds = [];
+  totalWords = 0;
+  obtainedScore = 0;
+  fullScore = 0;
+  answers = [];
+  testStartTime = Date.now();
+  testRemaining = 15 * 60; // 15 minutes
+
+  const testTimerEl = document.getElementById('test-timer');
+  if (testTimerEl) testTimerEl.classList.remove('hidden');
+
+  updateTestTimerDisplay();
+  if(testTimerInterval) clearInterval(testTimerInterval);
+  testTimerInterval = setInterval(()=>{
+    testRemaining--;
+    updateTestTimerDisplay();
+    if(testRemaining <= 0){
+      // タイムアップ時は結果へ
+      endTest().catch(err => console.error('endTest error on timeout', err));
+    }
+  }, 1000);
+  disableMenus(true);
+  showNextPart();
+}
+
+function updateTestTimerDisplay(){
+  const mm = String(Math.floor(testRemaining / 60)).padStart(2, '0');
+  const ss = String(testRemaining % 60).padStart(2, '0');
+  const el = document.getElementById('test-timer');
+  if (el) el.textContent = `テスト残り: ${mm}:${ss}`;
+}
+
+function pickRandomPart(){
+  const remaining = partPool.filter(p => !usedIds.includes(p.id));
+  if(remaining.length === 0) return null;
+  const idx = Math.floor(Math.random() * remaining.length);
+  return remaining[idx];
+}
+
+function showNextPart(){
+  if(!testActive) return;
+  const part = pickRandomPart();
+  if(!part){
+    // no more parts → 結果へ
+    endTest().catch(err => console.error('endTest error (no more parts)', err));
+    return;
+  }
+  usedIds.push(part.id);
+
+  // compute word count for this part and add
+  const words = (part.passage || '').trim().split(/\s+/).filter(Boolean).length;
+  totalWords += words;
+
+  // compute this part's max score
+  let partMax = 0;
+  (part.questions || []).forEach(q=>{
+    (q.choices || []).forEach(c=>{
+      if(typeof c.correct === 'boolean' ? c.correct : String(c.correct) === 'true'){
+        partMax += Number(c.score || 0);
+      }
+    });
+  });
+  fullScore += partMax;
+
+  // render part
+  let html = `<div class="card"><h2>Part</h2><div style="white-space:pre-line;margin-bottom:12px">${escapeHtml(part.passage||'')}</div>`;
+  (part.questions || []).forEach((q, qi) => {
+    html += `<div class="q-block"><p>${escapeHtml(q.text||'')}</p>`;
+    (q.choices || []).forEach((c, ci) => {
+      const scoreAttr = Number(c.score || 0);
+      const correctAttr = (typeof c.correct === 'boolean' ? c.correct : String(c.correct) === 'true') ? 'true' : 'false';
+      // data-text は生テキスト（エスケープ済）を入れておく
+      html += `<div><label><input type="radio" name="q${qi}" data-score="${scoreAttr}" data-correct="${correctAttr}" data-text="${escapeHtml(c.text||'')}"> ${escapeHtml(c.text||'')}</label></div>`;
+    });
+    html += `</div>`;
+  });
+  html += `<div style="text-align:right;margin-top:10px;"><button class="btn-plain btn-primary" id="next-part-btn">次のPartへ</button></div></div>`;
+  document.getElementById('content').innerHTML = html;
+
+  // next handler
+  const nextBtn = document.getElementById('next-part-btn');
+  if(!nextBtn){
+    console.warn('next-part-btn が見つかりません');
+    return;
+  }
+  nextBtn.addEventListener('click', ()=> {
+    console.log('DEBUG: next-part clicked for part id', part.id);
+    const qCount = (part.questions || []).length;
+    for(let qi=0; qi<qCount; qi++){
+      const sel = document.querySelector(`input[name="q${qi}"]:checked`);
+      if(sel){
+        const s = Number(sel.dataset.score || 0);
+        obtainedScore += s;
+        const correct = (sel.dataset.correct === "true");
+        const selected = sel.dataset.text || null;
+
+        // 正しい答えを抽出（配列）
+        const correctAnswers = (part.questions[qi].choices || [])
+          .filter(c => (typeof c.correct === 'boolean' ? c.correct : String(c.correct) === 'true'))
+          .map(c => c.text);
+
+        answers.push({
+          question: part.questions[qi].text,
+          selected,
+          correct,
+          score: s,
+          correctAnswer: correctAnswers
+        });
+      } else {
+        // 未解答
+        const correctAnswers = (part.questions[qi].choices || [])
+          .filter(c => (typeof c.correct === 'boolean' ? c.correct : String(c.correct) === 'true'))
+          .map(c => c.text);
+
+        answers.push({
+          question: part.questions[qi].text,
+          selected: null,
+          correct: false,
+          score: 0,
+          correctAnswer: correctAnswers
+        });
+      }
+    }
+
+    // 残りのパートがあれば次へ、なければ endTest
+    const remaining = partPool.filter(p => !usedIds.includes(p.id));
+    if(remaining.length === 0){
+      endTest().catch(err => console.error('endTest error from next handler', err));
+    } else {
+      showNextPart();
+    }
+  }, { once: true }); // 複数バインドを避けるため once:true
+}
+
+async function endTest(){
+  try {
+    console.log('DEBUG: endTest start');
+    if(!testActive) return;
+    stopTest();
+
+    const elapsed = Math.floor((Date.now() - testStartTime) / 1000);
+    const elapsedSec = elapsed > 0 ? elapsed : 1;
+    const scoreRatio = fullScore > 0 ? (obtainedScore / fullScore) : 0;
+    const wpm = (totalWords / elapsedSec * 60) * scoreRatio;
+
+    // ランク判定（ご指定の閾値は「超えると」なので > を使用）
+    let rank = "ノーマル";
+    let rankColor = "#2c3e50";
+    if(obtainedScore > 80){ rank = "プラチナ"; rankColor = "#bcd"; } // 薄い色
+    else if(obtainedScore > 67){ rank = "ゴールド"; rankColor = "#ffd700"; }
+    else if(obtainedScore > 52){ rank = "シルバー"; rankColor = "#c0c0c0"; }
+    else if(obtainedScore > 43){ rank = "ブロンズ"; rankColor = "#cd7f32"; }
+
+    // まず画面を表示（保存は後回し）
+    renderResultScreen({ rank, rankColor, obtainedScore, wpm, elapsedSec, totalWords });
+
+    // 非同期で保存（失敗しても描画は止めない）
+    (async () => {
+      try {
+        const uid = currentUser ? currentUser.id : 'guest';
+        await addDoc(collection(db,"results"),{
+          uid,
+          type: "速読力測定テスト", // ← 追加: テスト種別
+          score: obtainedScore,
+          fullScore,
+          elapsed: elapsedSec,
+          wpm,
+          rank,
+          answers,
+          createdAt: new Date()
+        });
+        await addBnp(obtainedScore);
+        console.log('results saved');
+      } catch(saveErr){
+        console.warn('results save failed', saveErr);
+      }
+    })();
+
+    disableMenus(false);
+  } catch (err) {
+    console.error('endTest 内で例外:', err);
+    alert('結果表示でエラーが発生しました。Console を確認してください: ' + (err && err.message ? err.message : err));
+  }
+}
+
+// 結果画面のレンダリングを分離（レビューへ戻る際に endTest を再実行しないため）
+function renderResultScreen({ rank, rankColor, obtainedScore, wpm, elapsedSec, totalWords }){
+  // ランクに応じてトロフィーを表示
+  let trophyHtml = "";
+  if(rank !== "ブロンズ"){ // ブロンズ以上だけ表示
+    let size = "80px";
+    if(rank === "シルバー"){ size = "90px"; }
+    if(rank === "ゴールド"){ size = "100px"; }
+    if(rank === "プラチナ"){ size = "110px"; }
+
+    trophyHtml = `
+      <div style="font-size:${size}; color:${rankColor}; text-align:center; margin-bottom:10px;">
+        <i class="fas fa-trophy trophy-anim"></i>
+      </div>
+    `;
+  }
+
+  document.getElementById('content').innerHTML = `
+    <div class="card" style="border:3px solid ${rankColor}; text-align:center; padding:20px;">
+      <h2 style="color:${rankColor}; margin:0 0 8px 0;">${escapeHtml(rank)}</h2>
+      ${trophyHtml}
+      <div style="font-size:2.8em; font-weight:bold; color:${rankColor}; margin:10px 0;">
+        ${obtainedScore}
+      </div>
+      <div style="text-align:right; margin-top:10px;">
+        <p style="margin:0 0 6px 0;"><strong>WPM:</strong> ${wpm.toFixed(2)}</p>
+        <p style="margin:0 0 6px 0;"><strong>経過秒数:</strong> ${elapsedSec}</p>
+        <p style="margin:0;"><strong>総単語数:</strong> ${totalWords}</p>
+      </div>
+      <div style="text-align:right; margin-top:12px;">
+        <button class="btn-plain" id="review-btn">くわしく見る</button>
+        <button class="btn-plain btn-primary" id="close-btn">結果画面を閉じる</button>
+      </div>
+    </div>
+  `;
+
+  // イベント登録
+  const reviewBtn = document.getElementById('review-btn');
+  if(reviewBtn) reviewBtn.addEventListener('click', showDetailedReview);
+  const closeBtn = document.getElementById('close-btn');
+  if(closeBtn) closeBtn.addEventListener('click', ()=> {
+    // ホームに戻す（既存の renderHomeを使う）
+    if(typeof renderHome === 'function') renderHome();
+    else document.getElementById('content').innerHTML = `<div class="card"><h2>ホーム</h2></div>`;
+  });
+}
+
+function showDetailedReview(){
+  let html = `<div class="card"><h2>テスト見直し</h2>`;
+  answers.forEach((a, idx) => {
+  let status, color;
+
+  if (!a.selected) {
+    status = "未解答";
+    color = "gray";
+  } else if (a.correct) {
+    status = "⭕ 正解";
+    color = "green";
+  } else {
+    status = "❌ 不正解";
+    color = "red";
+  }
+
+  html += `<div style="margin:8px 0; padding:8px; border-left:4px solid ${color}; background:#fff;">
+    <p><strong>Q${idx+1}:</strong> ${escapeHtml(a.question || '')}</p>
+    <p><strong>あなたの解答:</strong> ${escapeHtml(a.selected || 'なし')}</p>
+    <p><strong>正しい答え:</strong> ${a.correctAnswer ? a.correctAnswer.map(x=>escapeHtml(x)).join(' / ') : ''}</p>
+    <p style="color:${color}; font-weight:bold;">${status}</p>
+  </div>`;
+});
+
+
+
+  html += `<div style="text-align:right; margin-top:12px;">
+      <button class="btn-plain btn-primary" id="back-result-btn">結果画面に戻る</button>
+    </div></div>`;
+  document.getElementById('content').innerHTML = html;
+  const backBtn = document.getElementById('back-result-btn');
+  if(backBtn) backBtn.addEventListener('click', ()=> {
+    // 再レンダリング（結果の数値はグローバル変数に残っている）
+    const elapsed = Math.floor((Date.now() - testStartTime) / 1000);
+    const elapsedSec = elapsed > 0 ? elapsed : 1;
+    const scoreRatio = fullScore > 0 ? (obtainedScore / fullScore) : 0;
+    const wpm = (totalWords / elapsedSec * 60) * scoreRatio;
+    let rank = "ノーマル";
+    let rankColor = "#2c3e50";
+    if(obtainedScore > 80){ rank = "プラチナ"; rankColor = "#bcd"; }
+    else if(obtainedScore > 67){ rank = "ゴールド"; rankColor = "#ffd700"; }
+    else if(obtainedScore > 52){ rank = "シルバー"; rankColor = "#c0c0c0"; }
+    else if(obtainedScore > 43){ rank = "ブロンズ"; rankColor = "#cd7f32"; }
+
+    renderResultScreen({ rank, rankColor, obtainedScore, wpm, elapsedSec, totalWords });
+  });
+}
+
+function stopTest(){
+  testActive = false;
+  if(testTimerInterval) { clearInterval(testTimerInterval); testTimerInterval = null; }
+  const el = document.getElementById('test-timer');
+  if (el) el.classList.add('hidden');
+}
+
+// helper: escapeHtml to keep layout safe
+function escapeHtml(s){
+  if(!s) return '';
+  return String(s).replace(/[&<>"']/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+// ===== テスト実装部分（改良版）ここまで =====
+
+
+
+
+    // ===== 問題一覧（管理者） & 編集機能 =====
+    async function loadPartsList(){
+      try{
+        const q = query(collection(db,'parts'), orderBy('createdAt','desc'));
+        const snap = await getDocs(q);
+        let html = `<div class="card"><h2>問題一覧</h2>`;
+        if (snap.empty) {
+          html += `<div style="margin-top:12px;padding:12px;border:1px dashed #eef3f5;border-radius:8px;color:#666">保存された問題がありません。</div>`;
+        } else {
+          snap.forEach(documentSnap => {
+            const d = documentSnap.data();
+            html += `<div class="part-item">
+              <div style="font-weight:700">ID: ${documentSnap.id}</div>
+              <div style="color:#555;margin-top:6px">${escapeHtml((d.passage||'').slice(0,200))}${(d.passage||'').length>200?'...':''}</div>
+              <div style="margin-top:8px;">設問数: ${(d.questions||[]).length}</div>
+              <div class="part-actions">
+                <button class="btn-plain btn-primary" data-action="edit" data-id="${documentSnap.id}">編集</button>
+                <button class="btn-plain btn-danger" data-action="delete" data-id="${documentSnap.id}">削除</button>
+              </div>
+            </div>`;
+          });
+        }
+        html += `</div>`;
+        document.getElementById('content').innerHTML = html;
+
+        // attach handlers
+        Array.from(document.querySelectorAll('button[data-action]')).forEach(b=>{
+          b.addEventListener('click', async ()=>{
+            const action = b.getAttribute('data-action');
+            const id = b.getAttribute('data-id');
+            if(action === 'delete'){
+              if(confirm('この問題を削除しますか？')){
+                try {
+                  await deleteDoc(doc(db,'parts',id));
+                  alert('削除しました');
+                  loadPartsList(); // immediate refresh
+                } catch(err) {
+                  console.error(err);
+                  alert('削除に失敗しました: ' + (err.message || err));
+                }
+              }
+            } else if(action === 'edit'){
+              editPart(id);
+            }
+          });
+        });
+      }catch(err){
+        console.error(err);
+        alert('一覧取得に失敗しました');
+      }
+    }
+
+    // editPart: load doc and render create-form populated, then update on save
+    async function editPart(id){
+      try{
+        const docRef = doc(db,'parts',id);
+        const snap = await getDoc(docRef);
+        if(!snap.exists()){
+          alert('該当のPartが見つかりません');
+          return;
+        }
+        const d = snap.data();
+
+        // render same create form but we fill values and change save handler to update
+        document.getElementById('content').innerHTML = `
+          <div class="card">
+            <h2>問題編集</h2>
+            <div>
+              <label>英文（Passage）</label>
+              <textarea id="part-passage" rows="6" style="width:100%; padding:8px; border-radius:6px; border:1px solid #d0d7dc;"></textarea>
+            </div>
+            <div id="questions-area" style="margin-top:12px;"></div>
+            <div style="margin-top:10px; display:flex; gap:8px;">
+              <button id="add-question" class="btn-plain btn-primary">設問を追加</button>
+              <button id="save-part" class="btn-plain" style="background:#2c3e50;color:#fff">変更を保存</button>
+            </div>
+          </div>
+        `;
+        document.getElementById('add-question').addEventListener('click', ()=> addQuestionBlock());
+        // populate
+        document.getElementById('part-passage').value = d.passage || '';
+        const qArea = document.getElementById('questions-area');
+        qArea.innerHTML = '';
+        (d.questions || []).forEach(qobj=>{
+          const div = document.createElement('div');
+          div.className = 'q-block';
+          div.innerHTML = `
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+              <strong>設問</strong>
+              <div>
+                <button class="btn-plain btn-danger btn-delete-q" type="button">設問を削除</button>
+              </div>
+            </div>
+            <input class="q-text" type="text" placeholder="設問文を入力" style="width:100%; margin-top:8px; padding:8px; border-radius:6px; border:1px solid #d0d7dc;" />
+            <div class="choices-area" style="margin-top:8px;"></div>
+            <div style="margin-top:6px;">
+              <button class="btn-plain btn-secondary btn-add-choice" type="button">選択肢を追加</button>
+            </div>
+          `;
+          qArea.appendChild(div);
+          div.querySelector('.btn-delete-q').addEventListener('click', ()=> div.remove());
+          div.querySelector('.btn-add-choice').addEventListener('click', ()=> addChoiceRow(div));
+          div.querySelector('.q-text').value = qobj.text || '';
+          const choicesArea = div.querySelector('.choices-area');
+          choicesArea.innerHTML = '';
+          (qobj.choices || []).forEach(ch=>{
+            addChoiceRow(div, { text: ch.text, score: ch.score, correct: ch.correct });
+          });
+        });
+
+        // save (update) handler
+        const saveBtn = document.getElementById('save-part');
+        const handler = async ()=>{
+          const passage = document.getElementById('part-passage').value.trim();
+          const questions = [];
+          document.querySelectorAll('.q-block').forEach(q=>{
+            const text = q.querySelector('.q-text').value.trim();
+            const choices = [];
+            q.querySelectorAll('.choice-row').forEach(c=>{
+              const chText = c.querySelector('.choice-text').value.trim();
+              const chScore = Number(c.querySelector('.choice-score').value || 0);
+              const chCorrect = c.querySelector('.choice-correct') ? (c.querySelector('.choice-correct').value === 'true') : false;
+              choices.push({ text: chText, score: chScore, correct: chCorrect });
+            });
+            if(text) questions.push({ text, choices });
+          });
+          if(questions.length===0){ alert('設問を入力してください'); return; }
+          try{
+            await updateDoc(docRef, { passage, questions, updatedAt: new Date() });
+            alert('更新しました');
+            loadPartsList(); // immediate reflect in list
+          }catch(err){
+            console.error(err);
+            alert('更新に失敗しました: ' + (err.message||err));
+          } finally {
+            saveBtn.removeEventListener('click', handler);
+          }
+        };
+        saveBtn.addEventListener('click', handler);
+
+      }catch(err){
+        console.error(err);
+        alert('編集ロードに失敗しました');
+      }
+    }
+
+/* ================= 文法特訓（管理者作成 + 学習者向け 50 問特訓） ================= */
+
+// === 文法特訓用タイマー（グローバル） ===
+let grammarTimerInterval = null;
+let grammarRemaining = 0;
+
+// タイマー表示更新（#test-timer を使う）
+function updateGrammarTimer(){
+  const el = document.getElementById('test-timer');
+  if(!el) return;
+  const mm = String(Math.floor(grammarRemaining / 60)).padStart(2,'0');
+  const ss = String(grammarRemaining % 60).padStart(2,'0');
+  el.textContent = `文法残り: ${mm}:${ss}`;
+}
+
+// ----- バナポ操作ヘルパー -----
+// users/<userid>.banapo に加算するシンプル実装
+async function addBanapo(amount){
+  if(!currentUser || !currentUser.id) return;
+  amount = Number(amount || 0);
+  if(amount <= 0) return;
+  try{
+    const uRef = doc(db,'users', currentUser.id);
+    const snap = await getDoc(uRef);
+    if(snap.exists()){
+      const d = snap.data();
+      const cur = Number(d.banapo || 0) || 0;
+      await updateDoc(uRef, { banapo: cur + amount });
+    } else {
+      // ユーザードキュメントがなければ作る（mergeで他項目を壊さない）
+      await setDoc(uRef, { username: currentUser.id, banapo: amount }, { merge: true });
+    }
+    // ヘッダー表示があれば更新
+    if(typeof refreshHeaderBanapoDisplay === 'function') {
+      try { refreshHeaderBanapoDisplay(); } catch(e){ /* ignore */ }
+    } else {
+      // 互換性のため、いくつかのIDを試して更新
+      const el = document.getElementById('banapo-amount') || document.getElementById('banapo-display') || document.getElementById('banapo-val') || document.getElementById('banapo-number');
+      if(el){
+        // 非同期に最新値を取りに行く
+        const snap2 = await getDoc(uRef);
+        const newVal = snap2.exists() ? Number(snap2.data().banapo || 0) : 0;
+        el.textContent = `${newVal} bnp`;
+      }
+    }
+  }catch(err){
+    console.warn('addBanapo error', err);
+  }
+}
+
+// ----- 管理用画面（そのまま） -----
+async function renderGrammarAdminHome(){
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <h2>文法問題作成（管理者）</h2>
+      <div style="display:flex;gap:12px;margin-top:12px;">
+        <div class="card" style="flex:1;cursor:pointer;text-align:center" id="grammar-add-card">
+          <h3>追加作成</h3>
+          <p>新しい文法問題を追加します</p>
+        </div>
+        <div class="card" style="flex:1;cursor:pointer;text-align:center" id="grammar-edit-card">
+          <h3>編集 / 削除</h3>
+          <p>既存問題を一覧・編集・削除します</p>
+        </div>
+      </div>
+    </div>
+  `;
+  document.getElementById('grammar-add-card').addEventListener('click', renderGrammarAddForm);
+  document.getElementById('grammar-edit-card').addEventListener('click', renderGrammarEditList);
+}
+
+function sanitizeCsvToArray(s){
+  if(!s) return [];
+  return s.split(',').map(x=>x.trim()).filter(Boolean);
+}
+
+function renderGrammarAddForm(){
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <h2>文法問題を追加</h2>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        <label>形式:
+          <select id="g-type">
+            <option value="multiple">択一 (multiple)</option>
+            <option value="reorder">並べ替え (reorder)</option>
+            <option value="fill">適語補充 (fill)</option>
+            <option value="translate">和文英訳 (translate)</option>
+          </select>
+        </label>
+        <label>設問文:<br>
+  <textarea id="g-question" rows="4" style="width:100%; padding:8px; resize:vertical;"></textarea>
+</label>
+        <label id="label-choices">選択肢 / 単語 (カンマ区切り):<br><textarea id="g-choices" style="width:100%;height:80px;padding:8px;"></textarea></label>
+        <label>正解 (並び・単語はカンマ区切りで):<br><input type="text" id="g-answer" style="width:100%; padding:8px;" /></label>
+        <label>スコア:<br><input type="number" id="g-score" value="1" style="width:120px; padding:6px;" /></label>
+        <div style="display:flex;gap:8px;">
+          <button id="g-save" class="btn-plain btn-primary">保存</button>
+          <button id="g-cancel" class="btn-plain">キャンセル</button>
+        </div>
+        <div style="font-size:12px;color:#666">
+          ※「並べ替え」は choices にカードの語を、answer に正しい順をカンマ区切りで入れてください。<br>
+          ※「適語補充」「和文英訳」は answer に正答文字列（複数可）をカンマ区切りで入力。
+        </div>
+      </div>
+    </div>
+  `;
+
+  // 保存
+  document.getElementById('g-save').addEventListener('click', async ()=>{
+    const type = document.getElementById('g-type').value;
+    const question = (document.getElementById('g-question')||{value:''}).value.trim();
+    const choices = sanitizeCsvToArray((document.getElementById('g-choices')||{value:''}).value);
+    const answer = sanitizeCsvToArray((document.getElementById('g-answer')||{value:''}).value);
+    const score = Number((document.getElementById('g-score')||{value:1}).value) || 1;
+    if(!question){ alert('設問を入力してください'); return; }
+    try{
+      await addDoc(collection(db,'grammarQuestions'), {
+        type, question, choices, answer, score, createdBy: currentUser ? currentUser.id : 'unknown', createdAt: new Date()
+      });
+      alert('保存しました');
+      renderGrammarAdminHome();
+    }catch(err){
+      console.error('grammar save err', err);
+      alert('保存に失敗しました: ' + (err.message || err));
+    }
+  });
+
+  document.getElementById('g-cancel').addEventListener('click', ()=> renderGrammarAdminHome());
+}
+
+async function renderGrammarEditList(){
+  try{
+    const q = query(collection(db,'grammarQuestions'), orderBy('createdAt','desc'));
+    const snap = await getDocs(q);
+    let html = `<div class="card"><h2>文法問題 一覧（編集）</h2>`;
+    if(snap.empty){
+      html += `<div style="padding:12px;color:#666">問題がありません。</div>`;
+    } else {
+      snap.forEach(docSnap=>{
+        const d = docSnap.data();
+        html += `<div style="border:1px solid #eef3f5;padding:8px;margin-top:8px;border-radius:6px;">
+          <div><strong>${escapeHtml(d.type||'')}</strong> — ${escapeHtml((d.question||'').slice(0,200))}</div>
+          <div style="margin-top:6px;font-size:13px;color:#666">スコア: ${escapeHtml(String(d.score||'' || ''))} • 作成者: ${escapeHtml(d.createdBy||'')}</div>
+          <div style="margin-top:8px;display:flex;gap:8px;">
+            <button class="btn-plain btn-primary" data-action="edit" data-id="${docSnap.id}">編集</button>
+            <button class="btn-plain btn-danger" data-action="delete" data-id="${docSnap.id}">削除</button>
+          </div>
+        </div>`;
+      });
+    }
+    html += `</div>`;
+    document.getElementById('content').innerHTML = html;
+
+    Array.from(document.querySelectorAll('button[data-action]')).forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const action = btn.getAttribute('data-action');
+        const id = btn.getAttribute('data-id');
+        if(action === 'delete'){
+          if(!confirm('削除してよいですか？')) return;
+          try{
+            await deleteDoc(doc(db,'grammarQuestions',id));
+            alert('削除しました');
+            renderGrammarEditList();
+          }catch(err){ console.error(err); alert('削除に失敗しました'); }
+        } else if(action === 'edit'){
+          openGrammarEditForm(id);
+        }
+      });
+    });
+
+  }catch(err){
+    console.error('renderGrammarEditList err', err);
+    alert('一覧取得に失敗しました');
+  }
+}
+
+async function openGrammarEditForm(id){
+  try{
+    const docRef = doc(db,'grammarQuestions',id);
+    const snap = await getDoc(docRef);
+    if(!snap.exists()){ alert('該当が見つかりません'); return; }
+    const d = snap.data();
+    document.getElementById('content').innerHTML = `
+      <div class="card">
+        <h2>編集: ${escapeHtml(d.question||'')}</h2>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <label>形式:
+            <select id="eg-type">
+              <option value="multiple">multiple</option>
+              <option value="reorder">reorder</option>
+              <option value="fill">fill</option>
+              <option value="translate">translate</option>
+            </select>
+          </label>
+          <label>設問文:<br>
+  <textarea id="eg-question" rows="4" style="width:100%;padding:8px; resize:vertical;"></textarea>
+</label>
+          <label>選択肢 / 単語 (カンマ区切り):<textarea id="eg-choices" style="width:100%;height:80px;padding:8px;"></textarea></label>
+          <label>正解 (カンマ区切り):<input id="eg-answer" style="width:100%;padding:8px;" /></label>
+          <label>スコア:<input id="eg-score" type="number" style="width:120px;padding:6px;" /></label>
+          <div style="display:flex;gap:8px;">
+            <button id="eg-save" class="btn-plain btn-primary">保存</button>
+            <button id="eg-cancel" class="btn-plain">キャンセル</button>
+          </div>
+        </div>
+      </div>
+    `;
+    // populate
+    document.getElementById('eg-type').value = d.type || 'multiple';
+    document.getElementById('eg-question').value = d.question || '';
+    document.getElementById('eg-choices').value = (d.choices||[]).join(', ');
+    document.getElementById('eg-answer').value = (d.answer||[]).join(', ');
+    document.getElementById('eg-score').value = d.score || 1;
+
+    document.getElementById('eg-save').addEventListener('click', async ()=>{
+      const type = document.getElementById('eg-type').value;
+      const question = document.getElementById('eg-question').value.trim();
+      const choices = sanitizeCsvToArray(document.getElementById('eg-choices').value);
+      const answer = sanitizeCsvToArray(document.getElementById('eg-answer').value);
+      const score = Number(document.getElementById('eg-score').value) || 1;
+      if(!question){ alert('設問を入力してください'); return; }
+      try{
+        await updateDoc(docRef, { type, question, choices, answer, score, updatedAt: new Date() });
+        alert('更新しました');
+        renderGrammarEditList();
+      }catch(err){ console.error(err); alert('更新に失敗しました'); }
+    });
+    document.getElementById('eg-cancel').addEventListener('click', renderGrammarEditList);
+
+  }catch(err){
+    console.error(err);
+    alert('編集ロードに失敗しました');
+  }
+}
+
+/* ===== 学習者向け: 文法特訓（50問ランダム・重複なし） ===== */
+async function startGrammarTraining(){
+  try{
+    const snap = await getDocs(collection(db,'grammarQuestions'));
+    let questions = [];
+    snap.forEach(s => questions.push({ id: s.id, ...s.data() }));
+    if(questions.length === 0){ alert('文法問題がまだ登録されていません。'); return; }
+
+    // シャッフル
+    questions = questions.sort(()=>Math.random()-0.5).slice(0,50);
+
+    // 状態
+    let idx = 0;
+    let score = 0;
+    const answersRecord = [];
+    const startTime = Date.now();
+
+    // UI: show timer in header
+    const testTimerEl = document.getElementById('test-timer');
+    if(testTimerEl) testTimerEl.classList.remove('hidden');
+
+    // disable menus while training
+    disableMenus(true);
+
+    // --- タイマー初期化（5分 = 300秒） ---
+    grammarRemaining = 5 * 60;
+    updateGrammarTimer();
+    if(grammarTimerInterval) { clearInterval(grammarTimerInterval); grammarTimerInterval = null; }
+    grammarTimerInterval = setInterval(()=> {
+      grammarRemaining--;
+      updateGrammarTimer();
+      if(grammarRemaining <= 0){
+        // タイムアップ: 強制終了
+        // move index to end and renderQ once (renderQ will handle save & cleanup)
+        idx = questions.length;
+        try { renderQ(); } catch(e){ /* ignore */ }
+        if(grammarTimerInterval){ clearInterval(grammarTimerInterval); grammarTimerInterval = null; }
+      }
+    }, 1000);
+
+    // render 関数
+    async function renderQ(){
+      // 終了分岐
+      if(idx >= questions.length){
+        // clear timer & hide
+        if(grammarTimerInterval){ clearInterval(grammarTimerInterval); grammarTimerInterval = null; }
+        if(testTimerEl) testTimerEl.classList.add('hidden');
+        // allow menus again
+        disableMenus(false);
+
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        // 保存（結果を DB に追加し、バナポを加算）
+        await saveGrammarResult(score, elapsed, answersRecord);
+        // 表示
+        renderGrammarResult(score, elapsed, answersRecord);
+        return;
+      }
+
+      const q = questions[idx];
+      let html = `
+        <div class="card">
+          <h2>Q${idx+1}/${questions.length}</h2>
+          <div style="margin-top:8px; white-space:pre-wrap;">${escapeHtml(q.question||'')}</div>
+          <div style="margin-top:12px;" id="g-body"></div>
+          <div style="margin-top:12px;text-align:right;">
+            <button class="btn-plain" id="g-skip">スキップ</button>
+            <button class="btn-plain btn-primary" id="g-submit">回答</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('content').innerHTML = html;
+
+      const body = document.getElementById('g-body');
+
+      if(q.type === 'multiple'){
+        // ラジオで表示
+        (q.choices || []).forEach((c, i)=>{
+          const div = document.createElement('div');
+          div.innerHTML = `<label><input type="radio" name="g-choice" value="${escapeHtml(c)}" data-correct="${(q.answer||[]).includes(c) ? 'true' : 'false'}" data-score="${q.score||1}"> ${escapeHtml(c)}</label>`;
+          body.appendChild(div);
+        });
+      } else if(q.type === 'reorder'){
+        // ----- 並べ替え UI: 語群（可選） と 解答欄（黒枠） を分けて表示 -----
+        const avail = document.createElement('div');
+        avail.id = 'g-avail';
+        avail.style.display = 'flex';
+        avail.style.flexWrap = 'wrap';
+        avail.style.gap = '6px';
+        avail.style.marginBottom = '8px';
+
+        (q.choices || []).forEach((w,i)=>{
+          const b = document.createElement('button');
+          b.className = 'btn-plain';
+          b.type = 'button';
+          b.textContent = w;
+          b.dataset.word = w;
+          b.style.cursor = 'pointer';
+          b.addEventListener('click', ()=> {
+            const picked = document.getElementById('g-picked');
+            const newb = document.createElement('button');
+            newb.className = 'btn-plain';
+            newb.type = 'button';
+            newb.textContent = w;
+            newb.dataset.word = w;
+            newb.style.cursor = 'pointer';
+            newb.addEventListener('click', ()=> {
+              const availEl = document.getElementById('g-avail');
+              if(availEl) availEl.appendChild(b);
+              const pickedEl = document.getElementById('g-picked');
+              if(pickedEl) pickedEl.removeChild(newb);
+            });
+            const pickedEl = document.getElementById('g-picked');
+            if(pickedEl) pickedEl.appendChild(newb);
+            if(b.parentElement) b.parentElement.removeChild(b);
+          });
+          avail.appendChild(b);
+        });
+
+        const picked = document.createElement('div');
+        picked.id = 'g-picked';
+        picked.style.minHeight = '40px';
+        picked.style.display = 'flex';
+        picked.style.flexWrap = 'wrap';
+        picked.style.gap = '6px';
+        picked.style.border = '2px solid #000';
+        picked.style.padding = '8px';
+        picked.style.marginTop = '8px';
+        picked.style.background = '#fff';
+
+        const resetWrap = document.createElement('div');
+        resetWrap.style.marginTop = '8px';
+        resetWrap.innerHTML = `<button class="btn-plain" id="g-reset">リセット</button>`;
+
+        body.appendChild(document.createElement('div'));
+        body.appendChild(avail);
+        body.appendChild(resetWrap);
+        body.appendChild(picked);
+
+        document.getElementById('g-reset').addEventListener('click', ()=> {
+          const pickedEl = document.getElementById('g-picked');
+          const availEl = document.getElementById('g-avail');
+          if(!pickedEl || !availEl) return;
+          while(pickedEl.firstChild){
+            const nb = pickedEl.firstChild;
+            const w = nb.dataset.word;
+            const ob = document.createElement('button');
+            ob.className = 'btn-plain';
+            ob.type = 'button';
+            ob.textContent = w;
+            ob.dataset.word = w;
+            ob.style.cursor = 'pointer';
+            ob.addEventListener('click', ()=> {
+              const newb = document.createElement('button');
+              newb.className = 'btn-plain';
+              newb.type = 'button';
+              newb.textContent = w;
+              newb.dataset.word = w;
+              newb.style.cursor = 'pointer';
+              newb.addEventListener('click', ()=> {
+                pickedEl.removeChild(newb);
+                availEl.appendChild(ob);
+              });
+              pickedEl.appendChild(newb);
+              availEl.removeChild(ob);
+            });
+            availEl.appendChild(ob);
+            pickedEl.removeChild(nb);
+          }
+        });
+
+      } else if(q.type === 'fill'){
+        body.innerHTML = `<input type="text" id="g-fill" style="width:100%;padding:8px;" placeholder="単語を入力" />`;
+      } else if(q.type === 'translate'){
+        body.innerHTML = `<textarea id="g-translate" style="width:100%;padding:8px;" rows="4" placeholder="英文を入力"></textarea>`;
+      }
+
+      // スキップ
+      document.getElementById('g-skip').addEventListener('click', ()=> {
+        answersRecord.push({
+  question: q.question,
+  selected: null,        // 統一キー名
+  isCorrect: false,      // 未解答は false
+  score: 0,
+  correctAnswer: q.answer || []
+});
+        idx++;
+        renderQ();
+      });
+
+      // 提出
+      document.getElementById('g-submit').addEventListener('click', ()=> {
+        let userAns = null;
+        let correct = false;
+        let addScore = 0;
+        if(q.type === 'multiple'){
+          const sel = document.querySelector('input[name="g-choice"]:checked');
+          if(sel){
+            userAns = sel.value;
+            correct = (sel.dataset.correct === 'true');
+            addScore = correct ? Number(sel.dataset.score||q.score||1) : 0;
+          } else {
+            userAns = null;
+            correct = false;
+            addScore = 0;
+          }
+        } else if(q.type === 'reorder'){
+          const pickedEl = document.getElementById('g-picked');
+          const arr = Array.from(pickedEl.children).map(b => b.dataset.word);
+          userAns = arr;
+          const target = q.answer || [];
+          const eq = (a,b) => a.length===b.length && a.every((v,i)=>String(v).trim() === String(b[i]).trim());
+          correct = eq(arr, target);
+          addScore = correct ? (q.score || 1) : 0;
+        } else if(q.type === 'fill'){
+          const v = (document.getElementById('g-fill')||{value:''}).value.trim();
+          userAns = v;
+          const possible = (q.answer||[]).map(x=>String(x).trim().toLowerCase());
+          correct = possible.includes(String(v).trim().toLowerCase());
+          addScore = correct ? (q.score || 1) : 0;
+        } else if(q.type === 'translate'){
+          const v = (document.getElementById('g-translate')||{value:''}).value.trim();
+          userAns = v;
+          const possible = (q.answer||[]).map(x=>String(x).trim().toLowerCase());
+          correct = possible.includes(String(v).trim().toLowerCase());
+          addScore = correct ? (q.score || 1) : 0;
+        }
+
+        answersRecord.push({
+  question: q.question,
+  selected: userAns,          // 選んだ値（文字列 or 配列）
+  isCorrect: !!correct,       // 真偽を明示
+  score: addScore,
+  correctAnswer: q.answer || []
+});
+        score += addScore;
+
+        // （重要）ここでは個別にバナポ加算しない。終了時に合計で加算する。
+        idx++;
+        renderQ();
+      });
+
+    } // renderQ 関数 end
+
+    // 最初を表示
+    renderQ();
+
+  }catch(err){
+    console.error('startGrammarTraining err', err);
+    alert('文法特訓の開始に失敗しました: ' + (err && err.message ? err.message : err));
+    // 安全処理
+    if(grammarTimerInterval){ clearInterval(grammarTimerInterval); grammarTimerInterval = null; }
+    const testTimerEl = document.getElementById('test-timer');
+    if(testTimerEl) testTimerEl.classList.add('hidden');
+    disableMenus(false);
+  }
+}
+
+// 保存（結果を DB に追加し、バナポを加算）
+// 既存の saveGrammarResult と置き換えてください
+async function saveGrammarResult(score, elapsedSec, answersRecord){
+  try{
+    const uid = currentUser ? currentUser.id : 'guest';
+    // results ドキュメントに、互換性のために testType と type の両方を入れておく
+    await addDoc(collection(db,'results'), {
+      uid,
+      type: '文法特訓',
+      testType: 'grammar',
+      score,
+      elapsed: elapsedSec,
+      answers: answersRecord,
+      createdAt: new Date()
+    });
+    // 終了時に一度だけバナポを加算（スコアをそのまま加算）
+    try { 
+      if(typeof addBanapo === 'function') {
+        await addBanapo(score);
+      }
+    } catch(e){ console.warn('addBanapo at end failed', e); }
+  }catch(err){
+    console.warn('saveGrammarResult failed', err);
+  }
+}
+
+// 結果表示
+function renderGrammarResult(score, elapsedSec, answersRecord){
+  // 結果画面を描画
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <h2>文法特訓 結果</h2>
+      <p>獲得スコア: ${score}</p>
+      <p>経過秒数: ${elapsedSec} 秒</p>
+      <div style="text-align:right;margin-top:12px;">
+        <button id="g-to-home" class="btn-plain">ホームに戻る</button>
+        <button id="g-review" class="btn-plain btn-primary">詳細を見る</button>
+      </div>
+    </div>
+  `;
+
+  // ホームへ戻る
+  const toHomeBtn = document.getElementById('g-to-home');
+  if(toHomeBtn){
+    toHomeBtn.addEventListener('click', ()=> {
+      if(typeof renderHome === 'function') renderHome();
+      else document.getElementById('content').innerHTML = `<div class="card"><h2>ホーム</h2></div>`;
+    });
+  }
+
+  // 「詳細を見る」
+  const reviewBtn = document.getElementById('g-review');
+  if(reviewBtn){
+    reviewBtn.addEventListener('click', async ()=> {
+      try {
+        // 最新の自分の結果を取得
+        const qSnap = await getDocs(query(collection(db,'results'), orderBy('createdAt','desc')));
+        let found = null;
+        qSnap.forEach(docSnap=>{
+          if(found) return;
+          const d = docSnap.data();
+          if(d.uid !== (currentUser ? currentUser.id : 'guest')) return;
+          if((d.testType && d.testType === 'grammar') || (d.type && d.type === '文法特訓')){
+            found = { id: docSnap.id, data: d };
+          }
+        });
+
+        if(!found){ alert('詳細が見つかりません'); return; }
+
+        // answers を正規化して表示
+        const arr = Array.isArray(found.data.answers) ? found.data.answers : [];
+
+        function _normalizeAnswer(a){
+          if(!a) return { question:'', selected:null, isCorrect:false, score:0, correctAnswer:[] };
+          const question = a.question || a.q || '';
+          const selected = ('selected' in a) ? a.selected
+                        : ('userAnswer' in a) ? a.userAnswer
+                        : ('selectedAnswer' in a) ? a.selectedAnswer
+                        : null;
+          const isCorrect = ('isCorrect' in a) ? !!a.isCorrect
+                         : ('correct' in a) ? !!a.correct
+                         : false;
+          const correctAnswer = a.correctAnswer || a.correctAnswers || a.answer || a.correct || [];
+          return {
+            question,
+            selected,
+            isCorrect,
+            score: a.score || 0,
+            correctAnswer: Array.isArray(correctAnswer) ? correctAnswer : [String(correctAnswer)]
+          };
+        }
+
+        let html = `<div class="card"><h2>文法特訓：詳細</h2>`;
+        arr.forEach((raw,i)=>{
+          const n = _normalizeAnswer(raw);
+          const isUnanswered = (
+            n.selected === null ||
+            n.selected === undefined ||
+            (typeof n.selected === 'string' && n.selected.trim() === '') ||
+            (Array.isArray(n.selected) && n.selected.length === 0)
+          );
+          let statusText, color;
+          if(isUnanswered){
+            statusText = '未解答';
+            color = 'gray';
+          } else if(n.isCorrect){
+            statusText = '⭕ 正解';
+            color = 'green';
+          } else {
+            statusText = '❌ 不正解';
+            color = 'red';
+          }
+
+          const yourAnsDisplay = Array.isArray(n.selected) ? n.selected.join(' / ') : (n.selected || 'なし');
+          const correctAnsDisplay = (n.correctAnswer || []).map(x => escapeHtml(String(x))).join(' / ');
+
+          html += `<div style="margin:6px 0;padding:8px;border-left:4px solid ${color};">
+            <p><strong>Q${i+1}:</strong> ${escapeHtml(n.question||'')}</p>
+            <p>あなたの解答: ${escapeHtml(yourAnsDisplay)}</p>
+            <p>正答: ${correctAnsDisplay}</p>
+            <p style="color:${color};font-weight:bold">${statusText}</p>
+          </div>`;
+        });
+        html += `<div style="text-align:right;margin-top:12px;">
+          <button id="back-to-results" class="btn-plain btn-primary">結果へ戻る</button>
+        </div></div>`;
+
+        // 詳細画面を描画
+        document.getElementById('content').innerHTML = html;
+
+        // 戻るボタン
+        const backBtn = document.getElementById('back-to-results');
+        if(backBtn){
+          backBtn.addEventListener('click', ()=> {
+            renderGrammarResult(found.data.score, found.data.elapsed, found.data.answers || []);
+          });
+        }
+
+      } catch(err){
+        console.error('g review err', err);
+        alert('詳細の取得に失敗しました: ' + (err && err.message ? err.message : err));
+      }
+    });
+  }
+}
+
+
+/* ================= end: 文法特訓 ================= */
+
+
+
+
+
+    // ===== 初表示はログイン画面（何も変更しない） =====
+    // end of module
+
+    // ★★ ここから追加: 「start-speed」ボタンを確実に拾うハンドラ（最小追加部分） ★★
+    document.addEventListener('click', async (e) => {
+      try {
+        if (e.target && e.target.id === 'start-speed') {
+          console.log('[debug] start-speed clicked');
+          if (confirm('テストを開始します。制限時間は15分です。')) {
+            if (typeof startTest === 'function') {
+              await startTest();
+            } else {
+              console.error('startTest is not defined');
+              alert('内部エラー: startTestが定義されていません。コンソールを確認してください。');
+            }
+          }
+        }
+      } catch (err) {
+        console.error('start-speed handler error', err);
+        alert('テスト開始処理でエラーが発生しました: ' + (err && err.message ? err.message : err));
+      }
+    });
+    // ★★ 追加ここまで ★★
+
+    /* ============== ここから新規追加: ホーム画面とお知らせ機能 ============== */
+    /* 追加ポリシー:
+       - ひな形A1 の既存コードは一切変更していません（上書き、削除なし）。
+       - 以下は「追加実装」のみで、ログイン直後にホームを表示するために既存の showMain() の動作をラップしています。
+       - Firestore に notices コレクションを使います。ドキュメント構造:
+         { title, body, createdBy, createdAt }
+    */
+
+    // ラップして元の showMain を拡張: ログイン直後にホームを表示する
+    if (typeof showMain === 'function') {
+      const __orig_showMain = showMain;
+      showMain = function(...args){
+        __orig_showMain.apply(this, args);
+        // 表示が切り替わった直後にホームを表示
+        renderHome();
+      };
+    }
+
+    // ロゴクリックでホームへ戻る
+    const logoEl = document.querySelector('.logo');
+    if (logoEl) {
+      logoEl.style.cursor = 'pointer';
+      logoEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        renderHome();
+      });
+    }
+
+    // ホーム画面描画
+    function renderHome(){
+      // ホームは「おしらせ」を表示する領域
+      document.getElementById('content').innerHTML = `
+        <div class="card">
+          <h2>ホーム</h2>
+          <p>ようこそ、${currentUser ? escapeHtml(currentUser.nickname || currentUser.id) : 'ゲスト'} さん。</p>
+        </div>
+        <div class="card" id="notices-card">
+          <h3>おしらせ</h3>
+          <div id="notices-list" style="margin-top:12px;"></div>
+          <div id="notice-admin-controls" style="margin-top:12px;"></div>
+        </div>
+      `;
+      loadNotices(); // 最新のお知らせを読み込んで表示
+      renderNoticeAdminControlsIfAllowed();
+    }
+
+    // 管理者なら投稿UIを表示
+    function renderNoticeAdminControlsIfAllowed(){
+      const ctrl = document.getElementById('notice-admin-controls');
+      if(!ctrl) return;
+      ctrl.innerHTML = '';
+      if(currentUser && currentUser.role === 'admin'){
+        // 投稿フォーム（折りたたみ式のシンプルなインターフェース）
+        ctrl.innerHTML = `
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <input id="new-notice-title" placeholder="タイトル" style="padding:8px;border-radius:6px;border:1px solid #d0d7dc;width:100%" />
+            <textarea id="new-notice-body" placeholder="本文" rows="4" style="padding:8px;border-radius:6px;border:1px solid #d0d7dc;width:100%"></textarea>
+            <div style="display:flex;gap:8px">
+              <button id="btn-create-notice" class="btn-plain btn-primary">投稿</button>
+              <button id="btn-refresh-notice" class="btn-plain">更新</button>
+            </div>
+          </div>
+        `;
+        document.getElementById('btn-create-notice').addEventListener('click', createNotice);
+        document.getElementById('btn-refresh-notice').addEventListener('click', loadNotices);
+      } else {
+        // 非管理者向けには何もしない（閲覧のみ）
+        ctrl.innerHTML = '';
+      }
+    }
+
+    // notices を読み込んで表示
+    async function loadNotices(){
+      try{
+        const q = query(collection(db,'notices'), orderBy('createdAt','desc'));
+        const snap = await getDocs(q);
+        const listEl = document.getElementById('notices-list');
+        if(!listEl) return;
+        if(snap.empty){
+          listEl.innerHTML = `<div style="color:#666;padding:12px;border:1px dashed #eef3f5;border-radius:8px">現在お知らせはありません。</div>`;
+          return;
+        }
+        let html = '';
+        snap.forEach(docSnap=>{
+          const d = docSnap.data();
+          const createdAt = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : (d.createdAt ? new Date(d.createdAt) : null);
+          const dateStr = createdAt ? createdAt.toLocaleString() : '';
+          html += `<div style="padding:12px;border-bottom:1px solid #f0f4f6;margin-bottom:8px;">
+              <div style="display:flex;justify-content:space-between;align-items:center">
+                <div style="font-weight:700">${escapeHtml(d.title||'（無題）')}</div>
+                <div style="font-size:12px;color:#666">${escapeHtml(d.createdBy||'')}${dateStr? ' • ' + escapeHtml(dateStr):''}</div>
+              </div>
+              <div style="margin-top:8px;white-space:pre-wrap">${escapeHtml(d.body||'')}</div>
+              <div style="margin-top:8px;" data-notice-id="${docSnap.id}"></div>
+            </div>`;
+        });
+        listEl.innerHTML = html;
+
+        // 追加: 管理者は各お知らせに編集/削除ボタンを表示
+        if(currentUser && currentUser.role === 'admin'){
+          const noticeWrappers = listEl.querySelectorAll('div[data-notice-id]');
+          noticeWrappers.forEach(wrapper=>{
+            const id = wrapper.getAttribute('data-notice-id');
+            wrapper.innerHTML = `
+              <div style="display:flex;gap:8px">
+                <button class="btn-plain" data-notice-action="edit" data-id="${id}">編集</button>
+                <button class="btn-plain btn-danger" data-notice-action="delete" data-id="${id}">削除</button>
+              </div>
+            `;
+          });
+          // attach actions
+          Array.from(listEl.querySelectorAll('button[data-notice-action]')).forEach(b=>{
+            b.addEventListener('click', async ()=>{
+              const action = b.getAttribute('data-notice-action');
+              const id = b.getAttribute('data-id');
+              if(action === 'delete'){
+                if(confirm('お知らせを削除しますか？')){
+                  try{
+                    await deleteDoc(doc(db,'notices',id));
+                    alert('削除しました');
+                    loadNotices(); // 即時反映
+                  }catch(err){
+                    console.error(err);
+                    alert('削除に失敗しました: ' + (err.message || err));
+                  }
+                }
+              } else if(action === 'edit'){
+                // 編集フォーム表示
+                openEditNoticeDialog(id);
+              }
+            });
+          });
+        }
+      }catch(err){
+        console.error(err);
+        alert('お知らせの取得に失敗しました: ' + (err.message || err));
+      }
+    }
+
+    // お知らせ作成
+    async function createNotice(){
+      const title = (document.getElementById('new-notice-title') || {value:''}).value.trim();
+      const body = (document.getElementById('new-notice-body') || {value:''}).value.trim();
+      if(!title && !body){ alert('タイトルまたは本文を入力してください'); return; }
+      try{
+        await addDoc(collection(db,'notices'), {
+          title,
+          body,
+          createdBy: currentUser ? currentUser.id : 'unknown',
+          createdAt: new Date()
+        });
+        // clear inputs
+        document.getElementById('new-notice-title').value = '';
+        document.getElementById('new-notice-body').value = '';
+        // 即時反映
+        loadNotices();
+        alert('投稿しました');
+      }catch(err){
+        console.error(err);
+        alert('投稿に失敗しました: ' + (err.message || err));
+      }
+    }
+
+    // 編集ダイアログ（簡易）を出し、更新する
+    async function openEditNoticeDialog(id){
+      try{
+        const docRef = doc(db,'notices',id);
+        const snap = await getDoc(docRef);
+        if(!snap.exists()){
+          alert('該当のお知らせが見つかりません');
+          return;
+        }
+        const d = snap.data();
+        // 簡易モーダル表示（DOM上に生成）
+        const overlay = document.createElement('div');
+        overlay.style.position = 'fixed';
+        overlay.style.left = '0';
+        overlay.style.top = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.background = 'rgba(0,0,0,0.4)';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.zIndex = '9999';
+        overlay.innerHTML = `
+          <div style="background:#fff;padding:16px;border-radius:8px;max-width:720px;width:90%;">
+            <h3>お知らせ編集</h3>
+            <input id="edit-notice-title" style="width:100%;padding:8px;border:1px solid #d0d7dc;border-radius:6px" value="${escapeHtml(d.title||'')}" />
+            <textarea id="edit-notice-body" rows="6" style="width:100%;margin-top:8px;padding:8px;border:1px solid #d0d7dc;border-radius:6px">${escapeHtml(d.body||'')}</textarea>
+            <div style="margin-top:8px;display:flex;gap:8px;justify-content:flex-end">
+              <button id="cancel-edit" class="btn-plain">キャンセル</button>
+              <button id="save-edit" class="btn-plain btn-primary">保存</button>
+            </div>
+          </div>
+        `;
+        document.body.appendChild(overlay);
+        overlay.querySelector('#cancel-edit').addEventListener('click', ()=> overlay.remove());
+        overlay.querySelector('#save-edit').addEventListener('click', async ()=>{
+          const newTitle = (overlay.querySelector('#edit-notice-title')||{value:''}).value.trim();
+          const newBody = (overlay.querySelector('#edit-notice-body')||{value:''}).value.trim();
+          try{
+            await updateDoc(docRef, { title: newTitle, body: newBody, updatedAt: new Date() });
+            alert('更新しました');
+            overlay.remove();
+            loadNotices(); // 即時反映
+          }catch(err){
+            console.error(err);
+            alert('更新に失敗しました: ' + (err.message || err));
+          }
+        });
+      }catch(err){
+        console.error(err);
+        alert('編集ロードに失敗しました: ' + (err.message || err));
+      }
+    }
+
+/* ===== 追加機能: ユーザー情報 / 音声コンテンツ / 学習の記録 ===== */
+
+// storage の参照は先頭 import で読み込んでいる想定 (getStorage, storageRef, uploadBytes, getDownloadURL, deleteObject)
+const storage = getStorage(app); // app は既存で初期化済み
+
+// ヘッダのニックネーム表示を更新（Firestore users/<userid> の nickname を使用）
+async function refreshHeaderNickname(){
+  if(!currentUser) return;
+  try {
+    const uRef = doc(db, 'users', currentUser.id);
+    const snap = await getDoc(uRef);
+    let nickname = currentUser.id;
+    if(snap.exists()){
+      const data = snap.data();
+      if(data && data.nickname) nickname = data.nickname;
+    } else {
+      // 初回: username を nickname にセット
+      await setDoc(uRef, { username: currentUser.id, nickname: currentUser.id }, { merge: true });
+      nickname = currentUser.id;
+    }
+    currentUser.nickname = nickname;
+    const nameEl = document.getElementById('user-name');
+    if(nameEl) nameEl.textContent = nickname;
+  } catch(err){
+    console.error('refreshHeaderNickname error', err);
+  }
+}
+
+// ----- バナポ関連 -----
+// storage は別途（既に app 初期化済み）
+// 1日ボーナス用のヘルパー: YYYY-MM-DD 文字列を返す
+function todayStr(){
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+// ヘッダーの bnp 表示を更新
+async function refreshBnpDisplay(){
+  try {
+    if(!currentUser) return;
+    const uRef = doc(db,'users', currentUser.id);
+    const snap = await getDoc(uRef);
+    let bnp = 0;
+    if(snap.exists()){
+      const data = snap.data();
+      if(data && typeof data.bnp === 'number') bnp = data.bnp;
+    } else {
+      // 初期ドキュメント作成（username / nickname は既に set されている可能性あり）
+      await setDoc(uRef, { username: currentUser.id, nickname: currentUser.id, bnp: 0 }, { merge: true });
+      bnp = 0;
+    }
+    // update UI
+    const el = document.getElementById('bnp-value');
+    if(el) el.textContent = String(bnp);
+    // also keep local copy
+    currentUser.bnp = bnp;
+  } catch(err){
+    console.error('refreshBnpDisplay error', err);
+  }
+}
+
+// bnp を加算（負の値で減算も可能）
+// returns the new bnp value (number)
+async function addBnp(amount){
+  try {
+    if(!currentUser) return null;
+    const uRef = doc(db,'users', currentUser.id);
+    const snap = await getDoc(uRef);
+    let current = 0;
+    if(snap.exists()){
+      const data = snap.data();
+      current = (data && typeof data.bnp === 'number') ? data.bnp : 0;
+    }
+    const next = current + Number(amount || 0);
+    // マージで書き戻し
+    await setDoc(uRef, { bnp: next }, { merge: true });
+    // UI 更新
+    const el = document.getElementById('bnp-value');
+    if(el) el.textContent = String(next);
+    currentUser.bnp = next;
+    return next;
+  } catch(err){
+    console.error('addBnp error', err);
+    return null;
+  }
+}
+
+// ログイン時 1日一回ボーナス +10bnp（lastLoginBonus に日付を保存）
+async function creditDailyLoginBonusIfNeeded(){
+  try {
+    if(!currentUser) return;
+    const uRef = doc(db,'users', currentUser.id);
+    const snap = await getDoc(uRef);
+    const today = todayStr();
+    let last = null;
+    if(snap.exists()){
+      const data = snap.data();
+      last = data && data.lastLoginBonus ? data.lastLoginBonus : null;
+    }
+    if(last !== today){
+      // give 10bnp
+      await addBnp(10);
+      // record the date
+      await setDoc(uRef, { lastLoginBonus: today }, { merge: true });
+      console.log('daily login bonus granted');
+    } else {
+      console.log('daily login bonus already granted today');
+    }
+  } catch(err){
+    console.error('creditDailyLoginBonusIfNeeded error', err);
+  }
+}
+
+// ----- ユーザー情報画面 -----
+async function renderUserInfo(){
+  if(!currentUser) return;
+  const uRef = doc(db, 'users', currentUser.id);
+  let data = {};
+  try {
+    const snap = await getDoc(uRef);
+    if(snap.exists()) data = snap.data();
+    else {
+      await setDoc(uRef, { username: currentUser.id, nickname: currentUser.id }, { merge: true });
+      data = { username: currentUser.id, nickname: currentUser.id };
+    }
+  } catch(err){
+    console.error('renderUserInfo load error', err);
+    data = { username: currentUser.id, nickname: currentUser.id };
+  }
+
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <h2>ユーザー情報</h2>
+      <p><strong>ユーザー名</strong>: <span id="ui-username">${escapeHtml(data.username || currentUser.id)}</span></p>
+      <p><strong>パスワード</strong>: <span id="ui-password">${escapeHtml(users[currentUser.id] ? users[currentUser.id].password : '')}</span></p>
+      <p><strong>ニックネーム</strong>: <input id="ui-nickname" value="${escapeHtml(data.nickname || currentUser.id)}" /> <button id="ui-nickname-save" class="btn-plain btn-primary">保存</button></p>
+    </div>
+  `;
+
+  document.getElementById('ui-nickname-save').addEventListener('click', async ()=>{
+    const newNick = (document.getElementById('ui-nickname') || {value:''}).value.trim() || currentUser.id;
+    try {
+      await setDoc(uRef, { nickname: newNick }, { merge: true });
+      currentUser.nickname = newNick;
+      const nameEl = document.getElementById('user-name');
+      if(nameEl) nameEl.textContent = newNick;
+      alert('ニックネームを保存しました');
+    } catch(err){
+      console.error('save nickname error', err);
+      alert('保存に失敗しました: ' + (err.message || err));
+    }
+  });
+}
+
+// ----- 音声コンテンツ画面 -----
+async function renderAudioContent(){
+  if(!currentUser) return;
+
+  const isAdmin = currentUser.role === 'admin';
+  const uploadUi = isAdmin ? `
+    <div style="margin-bottom:12px;">
+      <input type="text" id="audio-title" placeholder="タイトルを入力" style="padding:6px;border-radius:6px;border:1px solid #d0d7dc;width:60%" />
+      <input type="file" id="audio-file" accept="audio/mp3" style="margin-left:8px;" />
+      <button id="audio-upload-btn" class="btn-plain btn-primary">アップロード</button>
+    </div>
+  ` : '';
+
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <h2>音声コンテンツ</h2>
+      ${uploadUi}
+      <div id="audio-items">読み込み中...</div>
+    </div>
+  `;
+
+  // アップロード処理（管理者のみ）
+  if(isAdmin){
+    document.getElementById('audio-upload-btn').addEventListener('click', async ()=>{
+      const fileInput = document.getElementById('audio-file');
+      const title = (document.getElementById('audio-title')||{value:''}).value.trim() || (fileInput.files[0] ? fileInput.files[0].name : '無題');
+      if(!fileInput.files || fileInput.files.length === 0){ alert('ファイルを選択してください (mp3)'); return; }
+      const file = fileInput.files[0];
+      if(file.type !== 'audio/mpeg' && !file.name.endsWith('.mp3')){ alert('mp3ファイルを選択してください'); return; }
+      const storagePath = `audio/${Date.now()}_${file.name}`;
+      try {
+        const sRef = ref(storage, storagePath);
+        await uploadBytes(sRef, file);
+        const url = await getDownloadURL(sRef);
+        await addDoc(collection(db,'audio'), {
+          title,
+          path: storagePath,
+          url,
+          uploadedBy: currentUser.id,
+          createdAt: new Date()
+        });
+        alert('アップロード完了');
+        renderAudioContent();
+      } catch(err){
+        console.error('audio upload error', err);
+        alert('アップロードに失敗しました: ' + (err.message || err));
+      }
+    });
+  }
+
+  // 音声一覧を取得して表示
+  try {
+    const qAudio = query(collection(db,'audio'), orderBy('createdAt','desc'));
+    const snap = await getDocs(qAudio);
+    const container = document.getElementById('audio-items');
+    if(snap.empty){
+      container.innerHTML = `<div style="color:#666;padding:12px;border:1px dashed #eef3f5;border-radius:8px">音声コンテンツはまだありません。</div>`;
+      return;
+    }
+    let html = '';
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      const id = docSnap.id;
+      html += `<div style="padding:8px 0;border-bottom:1px solid #f0f4f6;">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <div>
+            <div style="font-weight:700">${escapeHtml(d.title||'（無題）')}</div>
+            <div style="font-size:12px;color:#666">${escapeHtml(d.uploadedBy||'')} ${d.createdAt ? ' • ' + new Date(d.createdAt.seconds*1000).toLocaleString() : ''}</div>
+          </div>
+          <div>
+            <button class="btn-plain play-audio-btn" data-url="${escapeHtml(d.url||'')}" data-id="${id}">再生</button>
+            ${isAdmin ? `<button class="btn-plain btn-danger del-audio-btn" data-id="${id}">削除</button>` : ''}
+          </div>
+        </div>
+        <div class="audio-player" id="player-${id}" style="margin-top:8px;"></div>
+      </div>`;
+    });
+    container.innerHTML = html;
+
+    // 再生ボタン
+    Array.from(container.querySelectorAll('.play-audio-btn')).forEach(btn => {
+      btn.addEventListener('click', (e)=>{
+        const url = btn.getAttribute('data-url');
+        const id = btn.getAttribute('data-id');
+        const playerDiv = document.getElementById(`player-${id}`);
+        if(playerDiv){
+          playerDiv.innerHTML = `<audio controls src="${url}">お使いのブラウザは audio タグをサポートしていません。</audio>`;
+        }
+      });
+    });
+
+    // 管理者の削除処理（Firestore doc と Storage のオブジェクト削除）
+    if(isAdmin){
+      Array.from(container.querySelectorAll('.del-audio-btn')).forEach(btn=>{
+        btn.addEventListener('click', async ()=>{
+          const id = btn.getAttribute('data-id');
+          if(!confirm('この音声を削除しますか？')) return;
+          try {
+            const dSnap = await getDoc(doc(db,'audio',id));
+            if(dSnap.exists()){
+              const d = dSnap.data();
+              if(d && d.path){
+                try {
+                  const sRef = storageRef(storage, d.path);
+                  await deleteObject(sRef); // storage オブジェクトの削除
+                } catch(e){ console.warn('storage delete error', e); }
+              }
+            }
+            await deleteDoc(doc(db,'audio',id));
+            alert('削除しました');
+            renderAudioContent();
+          } catch(err){
+            console.error('delete audio error', err);
+            alert('削除に失敗しました: ' + (err.message || err));
+          }
+        });
+      });
+    }
+  } catch(err){
+    console.error('load audio list error', err);
+    const container = document.getElementById('audio-items');
+    if(container) container.innerHTML = `<div style="color:#666">音声の読み込みに失敗しました</div>`;
+  }
+}
+
+// ----- 学習の記録（読み取り表示の雛形） -----
+async function renderStudyLog(){
+  if(!currentUser) return;
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <h2>学習の記録</h2>
+      <div id="studylog-list">読み込み中...</div>
+      <div style="margin-top:12px;">（記録の追加は後で拡張できます）</div>
+    </div>
+  `;
+  try {
+    const qLog = query(collection(db,'studyLogs'), orderBy('createdAt','desc'));
+    const snap = await getDocs(qLog);
+    const container = document.getElementById('studylog-list');
+    if(snap.empty){ container.innerHTML = '<div style="color:#666">記録はありません。</div>'; return; }
+    let html = '';
+    snap.forEach(docSnap=>{
+      const d = docSnap.data();
+      html += `<div style="padding:8px;border-bottom:1px solid #f0f4f6;">
+        <div style="font-weight:700">${escapeHtml(d.title || '学習')}</div>
+        <div style="font-size:13px;color:#666">${d.createdAt ? new Date(d.createdAt.seconds*1000).toLocaleString() : ''} • ${escapeHtml(d.user||'')}</div>
+        <div style="margin-top:6px;white-space:pre-wrap">${escapeHtml(d.note||'')}</div>
+      </div>`;
+    });
+    container.innerHTML = html;
+  } catch(err){
+    console.error('renderStudyLog error', err);
+    const container = document.getElementById('studylog-list');
+    if(container) container.innerHTML = '<div style="color:#666">読み込みに失敗しました</div>';
+  }
+}
+
+// ----- サイドメニュークリックを紐づける（追加した li のイベント登録） -----
+const menuUserInfoEl = document.getElementById('menu-userinfo');
+if(menuUserInfoEl) menuUserInfoEl.addEventListener('click', ()=> { if(!testActive) renderUserInfo(); });
+
+const menuAudioEl = document.getElementById('menu-audio');
+if(menuAudioEl) menuAudioEl.addEventListener('click', ()=> { if(!testActive) renderAudioContent(); });
+
+const menuStudyLogEl = document.getElementById('menu-studylog');
+if(menuStudyLogEl) menuStudyLogEl.addEventListener('click', ()=> { if(!testActive) renderStudyLog(); });
+
+// ----- showMain をラップしてログイン時にニックネームを更新してホーム表示 -----
+if (typeof showMain === 'function') {
+  const __orig_showMain = showMain;
+  showMain = function(...args){
+    __orig_showMain.apply(this, args);
+    // ニックネームを読み取ってからホームを描画（失敗してもホームは描画）
+    refreshHeaderNickname()
+      .then(()=>{
+        renderHome();
+      })
+      .catch(()=>{
+        renderHome();
+      })
+      .finally(()=>{
+        // ここから追加 --- ▼
+        refreshBnpDisplay().catch(()=>{});
+        creditDailyLoginBonusIfNeeded().catch(()=>{});
+        // ここまで追加 --- ▲
+      });
+  };
+}
+
+    /* ============== ここまでお知らせ機能 ============== */
+// ----- 管理者画面: ユーザー管理 -----
+async function renderUserManagement(){
+  if(!currentUser || currentUser.role !== 'admin'){
+    alert('管理者のみアクセス可能です');
+    return;
+  }
+
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <h2>ユーザー管理（管理者用）</h2>
+      <div style="margin-bottom:12px;">
+        <input id="um-filter" placeholder="ユーザーIDで絞り込み" style="padding:8px;border-radius:6px;border:1px solid #d0d7dc;width:40%" />
+        <button id="um-refresh" class="btn-plain" style="margin-left:8px;">再読み込み</button>
+      </div>
+      <div id="um-list">読み込み中...</div>
+    </div>
+  `;
+
+  document.getElementById('um-refresh').addEventListener('click', loadUserList);
+  document.getElementById('um-filter').addEventListener('input', ()=> { loadUserList(); });
+
+  await loadUserList();
+}
+
+async function loadUserList(){
+  const container = document.getElementById('um-list');
+  if(!container) return;
+  container.innerHTML = '読み込み中...';
+
+  try {
+    const qSnap = await getDocs(collection(db,'users'));
+    const filter = (document.getElementById('um-filter')||{value:''}).value.trim().toLowerCase();
+
+    let rows = [];
+    qSnap.forEach(d => {
+      const item = { id: d.id, ...d.data() };
+      if(item.bnp == null) item.bnp = 0;
+      if(item.nickname == null) item.nickname = item.username || item.id;
+      if(filter && !String(item.id).toLowerCase().includes(filter) && !String(item.username||'').toLowerCase().includes(filter)) return;
+      rows.push(item);
+    });
+
+    if(rows.length === 0){
+      container.innerHTML = '<div style="color:#666">ユーザーが見つかりません。</div>';
+      return;
+    }
+
+    let html = `<table style="width:100%;border-collapse:collapse;"><thead>
+      <tr style="text-align:left;border-bottom:1px solid #eef3f5;">
+        <th style="padding:8px;">ユーザーID</th>
+        <th>ニックネーム</th>
+        <th>BNP</th>
+        <th>操作</th>
+      </tr></thead><tbody>`;
+    rows.forEach(u=>{
+      html += `<tr data-uid="${escapeHtml(u.id)}" style="border-bottom:1px solid #f7f9fa;">
+        <td style="padding:8px;vertical-align:top;">${escapeHtml(u.id)}</td>
+        <td style="vertical-align:top;">
+          <input class="um-nickname" value="${escapeHtml(u.nickname||'')}" style="padding:6px;border:1px solid #d0d7dc;border-radius:6px;" />
+          <button class="btn-plain um-save-nick" style="margin-left:6px;">保存</button>
+        </td>
+        <td style="vertical-align:top;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <div class="um-bnp-value" style="min-width:80px;font-weight:bold;">${Number(u.bnp||0)}</div>
+            <input type="number" class="um-bnpdelta" value="10" style="width:80px;padding:6px;border-radius:6px;border:1px solid #d0d7dc;" />
+            <button class="btn-plain um-add">付与</button>
+            <button class="btn-plain btn-danger um-sub">没収</button>
+          </div>
+        </td>
+        <td style="vertical-align:top;">
+          <button class="btn-plain um-set" style="margin-right:6px;">直接設定</button>
+        </td>
+      </tr>`;
+    });
+    html += `</tbody></table>`;
+    container.innerHTML = html;
+
+    // attach handlers
+    Array.from(container.querySelectorAll('.um-save-nick')).forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        const tr = e.target.closest('tr');
+        const uid = tr.getAttribute('data-uid');
+        const newNick = tr.querySelector('.um-nickname').value.trim() || uid;
+        try {
+          await updateDoc(doc(db,'users',uid), { nickname: newNick });
+          alert('ニックネームを保存しました');
+          if(currentUser && currentUser.id === uid){ currentUser.nickname = newNick; const el = document.getElementById('user-name'); if(el) el.textContent = newNick; }
+        } catch(err){ console.error(err); alert('保存に失敗しました'); }
+      });
+    });
+
+    Array.from(container.querySelectorAll('.um-add')).forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        const tr = e.target.closest('tr');
+        const uid = tr.getAttribute('data-uid');
+        const delta = Number(tr.querySelector('.um-bnpdelta').value || 0);
+        if(!delta){ alert('増減量を入力してください'); return; }
+        if(!confirm(`${uid} に ${delta} bnp を付与しますか？`)) return;
+        await changeUserBnp(uid, delta, tr);
+      });
+    });
+
+    Array.from(container.querySelectorAll('.um-sub')).forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        const tr = e.target.closest('tr');
+        const uid = tr.getAttribute('data-uid');
+        const delta = Number(tr.querySelector('.um-bnpdelta').value || 0);
+        if(!delta){ alert('増減量を入力してください'); return; }
+        if(!confirm(`${uid} から ${delta} bnp を没収しますか？`)) return;
+        await changeUserBnp(uid, -delta, tr);
+      });
+    });
+
+    Array.from(container.querySelectorAll('.um-set')).forEach(btn=>{
+      btn.addEventListener('click', async (e)=>{
+        const tr = e.target.closest('tr');
+        const uid = tr.getAttribute('data-uid');
+        const newVal = Number(prompt(`${uid} の bnp をいくつに設定しますか？`, tr.querySelector('.um-bnp-value').textContent) || 0);
+        if(isNaN(newVal)){ alert('数値を入力してください'); return; }
+        if(!confirm(`${uid} の bnp を ${newVal} に設定しますか？`)) return;
+        try {
+          await updateDoc(doc(db,'users',uid), { bnp: newVal });
+          tr.querySelector('.um-bnp-value').textContent = newVal;
+          if(currentUser && currentUser.id === uid){ refreshHeaderBnp(); } // update header if self
+        } catch(err){ console.error(err); alert('更新に失敗しました'); }
+      });
+    });
+
+  } catch(err){
+    console.error('loadUserList error', err);
+    container.innerHTML = `<div style="color:#666">読み込みに失敗しました</div>`;
+  }
+}
+
+// bnp を変更する共通処理（読み取り→加算→保存）
+async function changeUserBnp(uid, delta, trElement){
+  try {
+    const uRef = doc(db,'users',uid);
+    const snap = await getDoc(uRef);
+    let currentVal = 0;
+    if(snap.exists()) currentVal = Number(snap.data().bnp || 0);
+    const newVal = currentVal + Number(delta || 0);
+    await updateDoc(uRef, { bnp: newVal });
+    if(trElement){
+      trElement.querySelector('.um-bnp-value').textContent = newVal;
+    }
+    if(currentUser && currentUser.id === uid){
+      refreshHeaderBnp();
+    }
+    alert('更新しました');
+  } catch(err){
+    console.error(err);
+    alert('更新に失敗しました: ' + (err.message || err));
+  }
+}
+
+  </script>
+
+
+</body>
+</html>
