@@ -376,7 +376,34 @@
     }
   });
 }
+// ===== BNP リアルタイム監視 =====
+function initBnpWatcher() {
+  if (!currentUser || !currentUser.id) return;
 
+  const userRef = doc(db, "users", currentUser.id);
+
+  // ユーザードキュメントをリアルタイム監視
+  onSnapshot(userRef, (snap) => {
+    if (!snap.exists()) return;
+    const data = snap.data();
+    const bnpValue = data.bnp || 0;
+
+    // #bnp-display に反映
+    const el = document.getElementById('bnp-display');
+    if (el) el.textContent = `${bnpValue} bnp`;
+  });
+}
+
+// ===== 呼び出すタイミング =====
+// currentUser がセットされた直後に呼ぶ
+if(currentUser && currentUser.id){
+  initBnpWatcher();
+}
+
+// もしくはログイン処理後のコールバック内で
+// loginUser().then(user => { currentUser = user; initBnpWatcher(); });
+
+    
     // ---------- 過去の成績（テスト種別選択 + 履歴表示） ----------
 function renderHistory(){
   // まず種別選択カードを表示
@@ -2546,5 +2573,6 @@ async function changeUserBnp(uid, delta, trElement){
 
 </body>
 </html>
+
 
 
