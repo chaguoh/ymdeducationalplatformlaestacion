@@ -515,7 +515,6 @@ async function showSavedResult(docId){
         html += `<div style="margin:8px 0; padding:8px; border-left:4px solid ${color}; background:#fff;">
           <p><strong>Q${idx+1}:</strong> ${escapeHtml(n.question || '')}</p>
           <p><strong>あなたの解答:</strong> ${escapeHtml(Array.isArray(n.selected) ? n.selected.join(' / ') : (n.selected || 'なし'))}</p>
-          <p><strong>正しい答え:</strong> ${escapeHtml((n.correctAnswers || []).join(' / '))}</p>
           <p style="color:${color}; font-weight:bold;">${status}</p>
         </div>`;
       });
@@ -887,10 +886,10 @@ async function endTest(){
     // ランク判定（ご指定の閾値は「超えると」なので > を使用）
     let rank = "ノーマル";
     let rankColor = "#2c3e50";
-    if(obtainedScore > 80){ rank = "プラチナ"; rankColor = "#bcd"; } // 薄い色
-    else if(obtainedScore > 67){ rank = "ゴールド"; rankColor = "#ffd700"; }
-    else if(obtainedScore > 52){ rank = "シルバー"; rankColor = "#c0c0c0"; }
-    else if(obtainedScore > 43){ rank = "ブロンズ"; rankColor = "#cd7f32"; }
+    if(obtainedScore > 75){ rank = "プラチナ"; rankColor = "#bcd"; } // 薄い色
+    else if(obtainedScore > 61){ rank = "ゴールド"; rankColor = "#ffd700"; }
+    else if(obtainedScore > 50){ rank = "シルバー"; rankColor = "#c0c0c0"; }
+    else if(obtainedScore > 41){ rank = "ブロンズ"; rankColor = "#cd7f32"; }
 
     // まず画面を表示（保存は後回し）
     renderResultScreen({ rank, rankColor, obtainedScore, wpm, elapsedSec, totalWords });
@@ -990,7 +989,6 @@ function showDetailedReview(){
   html += `<div style="margin:8px 0; padding:8px; border-left:4px solid ${color}; background:#fff;">
     <p><strong>Q${idx+1}:</strong> ${escapeHtml(a.question || '')}</p>
     <p><strong>あなたの解答:</strong> ${escapeHtml(a.selected || 'なし')}</p>
-    <p><strong>正しい答え:</strong> ${a.correctAnswer ? a.correctAnswer.map(x=>escapeHtml(x)).join(' / ') : ''}</p>
     <p style="color:${color}; font-weight:bold;">${status}</p>
   </div>`;
 });
@@ -1793,7 +1791,6 @@ function renderGrammarResult(score, elapsedSec, answersRecord){
           html += `<div style="margin:6px 0;padding:8px;border-left:4px solid ${color};">
             <p><strong>Q${i+1}:</strong> ${escapeHtml(n.question||'')}</p>
             <p>あなたの解答: ${escapeHtml(yourAnsDisplay)}</p>
-            <p>正答: ${correctAnsDisplay}</p>
             <p style="color:${color};font-weight:bold">${statusText}</p>
           </div>`;
         });
@@ -2573,6 +2570,7 @@ async function changeUserBnp(uid, delta, trElement){
 
 </body>
 </html>
+
 
 
 
