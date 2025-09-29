@@ -723,7 +723,7 @@ let fullScore = 0;
 let answers = []; // 解答ログを保存
 
 function disableMenus(flag){
-  ['menu-test','menu-history','menu-create','menu-list'].forEach(id=>{
+  ['menu-userinfo','menu-test','menu-history','menu-create','menu-list','menu-audio','menu-studylog'].forEach(id=>{
     const el = document.getElementById(id);
     if(!el) return;
     if(flag) el.classList.add('disabled'); else el.classList.remove('disabled');
@@ -2573,6 +2573,7 @@ async function changeUserBnp(uid, delta, trElement){
 
 </body>
 </html>
+
 
 
 
