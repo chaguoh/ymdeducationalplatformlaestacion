@@ -1691,10 +1691,10 @@ async function saveGrammarResult(score, elapsedSec, answersRecord){
     });
     // 終了時に一度だけバナポを加算（スコアをそのまま加算）
     try { 
-      if(typeof addBanapo === 'function') {
-        await addBanapo(score);
+      if(typeof addBnp === 'function') {
+        await addBnp(score);
       }
-    } catch(e){ console.warn('addBanapo at end failed', e); }
+    } catch(e){ console.warn('addBnp at end failed', e); }
   }catch(err){
     console.warn('saveGrammarResult failed', err);
   }
@@ -2573,6 +2573,7 @@ async function changeUserBnp(uid, delta, trElement){
 
 </body>
 </html>
+
 
 
 
