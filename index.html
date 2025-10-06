@@ -1310,44 +1310,126 @@ function renderGrammarAddForm(){
   document.getElementById('g-cancel').addEventListener('click', ()=> renderGrammarAdminHome());
 }
 
+// 既存の renderGrammarEditList をこの関数で丸ごと置き換えてください
 async function renderGrammarEditList(){
   try{
-    const q = query(collection(db,'grammarQuestions'), orderBy('createdAt','desc'));
-    const snap = await getDocs(q);
-    let html = `<div class="card"><h2>文法問題 一覧（編集）</h2>`;
-    if(snap.empty){
-      html += `<div style="padding:12px;color:#666">問題がありません。</div>`;
-    } else {
-      snap.forEach(docSnap=>{
-        const d = docSnap.data();
-        html += `<div style="border:1px solid #eef3f5;padding:8px;margin-top:8px;border-radius:6px;">
-          <div><strong>${escapeHtml(d.type||'')}</strong> — ${escapeHtml((d.question||'').slice(0,200))}</div>
-          <div style="margin-top:6px;font-size:13px;color:#666">スコア: ${escapeHtml(String(d.score||'' || ''))} • 作成者: ${escapeHtml(d.createdBy||'')}</div>
-          <div style="margin-top:8px;display:flex;gap:8px;">
-            <button class="btn-plain btn-primary" data-action="edit" data-id="${docSnap.id}">編集</button>
-            <button class="btn-plain btn-danger" data-action="delete" data-id="${docSnap.id}">削除</button>
+    const container = document.getElementById('content');
+    if(!container) return;
+
+    // UI（検索ボックス＋一覧領域）
+    container.innerHTML = `
+      <div class="card">
+        <h2>文法問題 一覧（編集）</h2>
+
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center;">
+          <input type="text" id="grammar-search-input" placeholder="キーワードで検索（設問・形式・選択肢を部分一致）..." style="flex:1;padding:8px;">
+          <button id="grammar-search-clear" class="btn-plain" style="white-space:nowrap;">クリア</button>
+        </div>
+
+        <div id="grammar-meta" style="margin-top:8px;color:#666;font-size:13px;"></div>
+        <div id="grammar-list" style="margin-top:12px;"></div>
+      </div>
+    `;
+
+    const listEl = document.getElementById('grammar-list');
+    const metaEl = document.getElementById('grammar-meta');
+    const inputEl = document.getElementById('grammar-search-input');
+    const clearBtn = document.getElementById('grammar-search-clear');
+
+    // Firestore から全件取得（管理者が扱う想定なので一度に取得してクライアント側で絞る）
+    const qRef = query(collection(db,'grammarQuestions'), orderBy('createdAt','desc'));
+    const snap = await getDocs(qRef);
+    const allQuestions = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    // 空チェック
+    if(allQuestions.length === 0){
+      listEl.innerHTML = `<div style="padding:12px;color:#666">問題がありません。</div>`;
+      metaEl.textContent = `合計: 0 問`;
+      return;
+    }
+
+    // 描画関数（配列を受け取って一覧を描画）
+    function renderList(arr){
+      if(!arr || arr.length === 0){
+        listEl.innerHTML = `<div style="padding:12px;color:#666">該当する問題はありません。</div>`;
+        metaEl.textContent = `表示: 0 / 合計: ${allQuestions.length} 問`;
+        return;
+      }
+
+      metaEl.textContent = `表示: ${arr.length} / 合計: ${allQuestions.length} 問`;
+      listEl.innerHTML = arr.map(item => {
+        const d = item || {};
+        return `
+          <div style="border:1px solid #eef3f5;padding:8px;margin-top:8px;border-radius:6px;">
+            <div><strong>${escapeHtml(d.type||'')}</strong> — ${escapeHtml((d.question||'').slice(0,200))}</div>
+            <div style="margin-top:6px;font-size:13px;color:#666">
+              スコア: ${escapeHtml(String(d.score || ''))} • 作成者: ${escapeHtml(d.createdBy || '')}
+            </div>
+            <div style="margin-top:8px;display:flex;gap:8px;">
+              <button class="btn-plain btn-primary" data-action="edit" data-id="${d.id}">編集</button>
+              <button class="btn-plain btn-danger" data-action="delete" data-id="${d.id}">削除</button>
+            </div>
           </div>
-        </div>`;
+        `;
+      }).join('');
+
+      // イベントを付与（描画の度に再登録）
+      Array.from(listEl.querySelectorAll('button[data-action]')).forEach(btn=>{
+        btn.addEventListener('click', async () => {
+          const action = btn.getAttribute('data-action');
+          const id = btn.getAttribute('data-id');
+          if(action === 'delete'){
+            if(!confirm('削除してよいですか？')) return;
+            try{
+              await deleteDoc(doc(db,'grammarQuestions',id));
+              alert('削除しました');
+              // ローカル配列から削除して再描画
+              const idx = allQuestions.findIndex(x => x.id === id);
+              if(idx !== -1) allQuestions.splice(idx, 1);
+              renderList(allQuestions);
+            }catch(err){
+              console.error(err);
+              alert('削除に失敗しました');
+            }
+          } else if(action === 'edit'){
+            // 既存の編集フォーム開く関数を再利用
+            openGrammarEditForm(id);
+          }
+        });
       });
     }
-    html += `</div>`;
-    document.getElementById('content').innerHTML = html;
 
-    Array.from(document.querySelectorAll('button[data-action]')).forEach(btn=>{
-      btn.addEventListener('click', async ()=>{
-        const action = btn.getAttribute('data-action');
-        const id = btn.getAttribute('data-id');
-        if(action === 'delete'){
-          if(!confirm('削除してよいですか？')) return;
-          try{
-            await deleteDoc(doc(db,'grammarQuestions',id));
-            alert('削除しました');
-            renderGrammarEditList();
-          }catch(err){ console.error(err); alert('削除に失敗しました'); }
-        } else if(action === 'edit'){
-          openGrammarEditForm(id);
+    // 最初は全件表示
+    renderList(allQuestions);
+
+    // 検索（デバウンス付きで部分一致。設問・形式・選択肢を検索対象）
+    let timeoutId = null;
+    inputEl.addEventListener('input', (ev) => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const kw = (ev.target.value || '').trim().toLowerCase();
+        if(kw === ''){
+          renderList(allQuestions);
+          return;
         }
-      });
+        const filtered = allQuestions.filter(item => {
+          const q = String(item.question || '').toLowerCase();
+          if(q.includes(kw)) return true;
+          const t = String(item.type || '').toLowerCase();
+          if(t.includes(kw)) return true;
+          if(Array.isArray(item.choices) && item.choices.join(' ').toLowerCase().includes(kw)) return true;
+          // 追加: 作成者やスコアなどを検索対象にしたければここに足せます
+          return false;
+        });
+        renderList(filtered);
+      }, 180); // 180ms デバウンス
+    });
+
+    // クリアボタン
+    clearBtn.addEventListener('click', () => {
+      inputEl.value = '';
+      renderList(allQuestions);
+      inputEl.focus();
     });
 
   }catch(err){
@@ -1355,6 +1437,7 @@ async function renderGrammarEditList(){
     alert('一覧取得に失敗しました');
   }
 }
+
 
 async function openGrammarEditForm(id){
   try{
@@ -2570,6 +2653,7 @@ async function changeUserBnp(uid, delta, trElement){
 
 </body>
 </html>
+
 
 
 
