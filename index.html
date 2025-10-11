@@ -2647,12 +2647,23 @@ async function changeUserBnp(uid, delta, trElement){
     alert('更新に失敗しました: ' + (err.message || err));
   }
 }
+// ✅ ページ再読み込みや閉じる前に警告を出す
+window.addEventListener("beforeunload", function (event) {
+  // ログイン中だけ警告を出す（currentUserが存在するとき）
+  if (typeof currentUser !== "undefined" && currentUser) {
+    const message = "再読み込みするとログアウトされます。よろしいですか？";
+    event.preventDefault();
+    event.returnValue = message; // Chrome / Edge 対応
+    return message; // Safari 対応
+  }
+});
 
   </script>
 
 
 </body>
 </html>
+
 
 
 
