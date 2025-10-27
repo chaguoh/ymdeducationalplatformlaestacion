@@ -149,6 +149,23 @@
   margin-bottom:10px;
 }
 
+.word-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+.word-table th, .word-table td {
+  border: 1px solid #ccc;
+  padding: 6px;
+  text-align: left;
+}
+.word-table th {
+  background: #f8f8f8;
+  font-weight: bold;
+}
+.word-table td[contenteditable="true"]:focus {
+  background: #fff9d6;
+  outline: none;
+｝
 
   </style>
 
@@ -197,11 +214,13 @@
           <li id="menu-userinfo">ユーザー情報</li>
           <li id="menu-test">テスト</li>
           <li id="menu-history">過去の成績</li>
+          <li id="menu-mywordlist">マイ単語リスト</li>
           <li id="menu-audio">音声コンテンツ</li>
           <li id="menu-studylog">学習の記録</li>
           <li id="menu-create" class="hidden">問題作成</li>
           <li id="menu-list" class="hidden">問題一覧</li>
           <li id="menu-grammar-admin" class="hidden">文法問題作成</li>
+          <li id="menu-wordlist" class="hidden">単語リスト管理</li>
           <li id="menu-useradmin" class="hidden">ユーザー管理</li>
         </ul>
       </nav>
@@ -232,6 +251,23 @@
     };
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
+
+import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+
+const auth = getAuth(app);
+let myWordList = []; // 各ユーザーごとの単語を入れる配列
+
+onAuthStateChanged(auth, async (user) => {
+  if (user) {
+    currentUser = { id: user.uid, email: user.email };
+    console.log("✅ ログイン中:", currentUser.email);
+    await loadMyWordListFromFirestore(); // ← Firestoreから自分の単語を読み込み
+  } else {
+    console.log("⚠️ ログアウト状態");
+    currentUser = null;
+    myWordList = [];
+  }
+});
 
     // === ユーザー固定情報 ===
     const users = {
@@ -304,11 +340,13 @@
         document.getElementById('menu-list').classList.remove('hidden');
         document.getElementById('menu-useradmin').classList.remove('hidden');
         document.getElementById('menu-grammar-admin').classList.remove('hidden');
+        document.getElementById('menu-wordlist').classList.remove('hidden');
       } else {
         document.getElementById('menu-create').classList.add('hidden');
         document.getElementById('menu-list').classList.add('hidden');
         document.getElementById('menu-useradmin').classList.add('hidden');
         document.getElementById('menu-grammar-admin').classList.add('hidden');
+        document.getElementById('menu-wordlist').classList.add('hidden');
       }
       // start session countdown
       startSessionCountdown();
@@ -335,34 +373,125 @@
       document.getElementById('content').innerHTML = `<div class="card"><h2>ようこそ！</h2><p>左のメニューから操作を選んでください。</p></div>`;
     }
 
-    // ===== サイドメニュー動作（そのまま） =====
-    document.getElementById('menu-test').addEventListener('click', ()=> { if(!testActive) renderTestMenu(); });
-    document.getElementById('menu-history').addEventListener('click', ()=> { if(!testActive) renderHistory(); });
-    document.getElementById('menu-create').addEventListener('click', ()=> { if(!testActive) renderCreateForm(); });
-    document.getElementById('menu-list').addEventListener('click', ()=> { if(!testActive) loadPartsList(); });
-    document.getElementById('menu-useradmin').addEventListener('click', ()=> { if(!testActive) renderUserManagement(); });
-    document.getElementById('menu-grammar-admin').addEventListener('click', ()=> { if(!testActive) renderGrammarAdminHome(); });
+// ===== サイドメニュー動作（そのまま） =====
+document.getElementById('menu-test').addEventListener('click', ()=> { if(!testActive) renderTestMenu(); });
+document.getElementById('menu-history').addEventListener('click', ()=> { if(!testActive) renderHistory(); });
+document.getElementById('menu-create').addEventListener('click', ()=> { if(!testActive) renderCreateForm(); });
+document.getElementById('menu-list').addEventListener('click', ()=> { if(!testActive) loadPartsList(); });
 
+document.getElementById('menu-useradmin').addEventListener('click', ()=> { if(!testActive) renderUserManagement(); });
+document.getElementById('menu-grammar-admin').addEventListener('click', ()=> { if(!testActive) renderGrammarAdminHome(); });
+document.getElementById('menu-wordlist').addEventListener('click', ()=> { 
+  if(!testActive) renderWordList(); 
+});
+document.getElementById('menu-mywordlist').addEventListener('click', ()=> {
+  if (!testActive) renderMyWordList();
+});
 
     // ===== テストメニュー（雛形） =====
-    function renderTestMenu(){
+// ===== テストメニュー（ピンク枠・横一列版） =====
+function renderTestMenu() {
   document.getElementById('content').innerHTML = `
-    <div class="card">
-      <h2>テスト</h2>
-      <div class="card" style="padding:12px;">
-        <div style="display:flex;gap:12px;flex-wrap:wrap">
-          <div style="min-width:200px;flex:1" class="card">
-            <h3 style="margin:0 0 8px 0">速読力測定テスト</h3>
-            <button class="btn-plain btn-primary" id="start-speed">テストを始める</button>
-          </div>
-          <div style="min-width:200px;flex:1" class="card">
-            <h3 style="margin:0 0 8px 0">文法特訓</h3>
-            <button class="btn-plain btn-primary" id="start-grammar">特訓開始</button>
-          </div>
+    <div class="card test-main-card">
+      <h2 class="test-title">英語</h2>
+
+      <div class="test-card-row">
+        <div class="test-card">
+          <h3>速読力測定テスト</h3>
+          <button class="btn-plain btn-primary" id="start-speed">テストを始める</button>
+        </div>
+
+        <div class="test-card">
+          <h3>文法特訓</h3>
+          <button class="btn-plain btn-primary" id="start-grammar">特訓開始</button>
+        </div>
+
+        <div class="test-card">
+          <h3>単語テスト</h3>
+          <button class="btn-plain btn-primary" id="start-wordtest">テストを始める</button>
         </div>
       </div>
     </div>
   `;
+
+  // スタイル追加
+  const styleTag = document.createElement('style');
+  styleTag.innerHTML = `
+    /* === 全体カード === */
+    .test-main-card {
+      max-width: 1000px;
+      margin: 40px auto;
+      padding: 32px 24px;
+      background: #ffeef2;
+      border: 3px solid #f5b5c5;
+      border-radius: 20px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    /* === タイトル（左寄せ・大きく・見出し向きフォント） === */
+    .test-title {
+      text-align: left;
+      font-size: 36px;
+      color: #333;
+      margin-bottom: 32px;
+      font-weight: 700;
+      font-family: 'Merriweather', 'Noto Serif JP', serif;
+    }
+
+    /* === 3カード横並び === */
+    .test-card-row {
+      display: flex;
+      justify-content: center;
+      align-items: stretch;
+      gap: 24px;
+      flex-wrap: nowrap;
+    }
+
+    /* === 各カード === */
+    .test-card {
+      flex: 1 1 280px;
+      max-width: 300px;
+      background: white;
+      border: 2px solid #f5b5c5;
+      border-radius: 16px;
+      padding: 28px 16px;
+      text-align: center;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .test-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+    }
+
+    .test-card h3 {
+      font-size: 20px;
+      margin-bottom: 16px;
+      color: #333;
+      font-weight: 600;
+    }
+
+    .test-card button {
+      font-size: 17px;
+      padding: 12px 32px;
+      border-radius: 8px;
+    }
+
+    /* スマホ対応（小さい画面では縦並び） */
+    @media (max-width: 768px) {
+      .test-card-row {
+        flex-wrap: wrap;
+      }
+      .test-card {
+        width: 100%;
+        max-width: none;
+      }
+    }
+  `;
+  document.head.appendChild(styleTag);
+
+
   // 既存の start-speed ハンドラは残す（A2 の他の場所でも拾っているが二重登録を避ける）
   const startBtn = document.getElementById('start-speed');
   if(startBtn) startBtn.addEventListener('click', async ()=> {
@@ -375,7 +504,1000 @@
       await startGrammarTraining();
     }
   });
+ const wordtestBtn = document.getElementById('start-wordtest');
+  if(wordtestBtn) wordtestBtn.addEventListener('click', renderWordTestMenu);
 }
+
+
+// ===== 単語テスト：モード・レベル・出題数選択画面 =====
+function renderWordTestMenu(defaultMode = 'en-ja') {
+  document.getElementById('content').innerHTML = `
+    <div class="card" style="max-width:800px;margin:auto;padding:24px;">
+      <h2 style="text-align:center;margin-bottom:24px;">単語テスト</h2>
+
+      <!-- モード選択 -->
+      <div style="margin-bottom:24px;">
+        <h3 style="margin-bottom:12px;">モードを選択してください</h3>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;">
+    <label class="wt-mode-card">
+  <input type="radio" name="wt-mode" value="en-ja" ${defaultMode==='en-ja'?'checked':''} hidden>
+  <div class="wt-card-content">
+    <div class="wt-card-title">英 → 日</div>
+    <div class="wt-card-sub">英単語から意味を選ぶ</div>
+  </div>
+</label>
+<label class="wt-mode-card">
+  <input type="radio" name="wt-mode" value="ja-en" ${defaultMode==='ja-en'?'checked':''} hidden>
+  <div class="wt-card-content">
+    <div class="wt-card-title">日 → 英</div>
+    <div class="wt-card-sub">日本語から英単語を入力する</div>
+  </div>
+</label>
+<label class="wt-mode-card">
+  <input type="radio" name="wt-mode" value="mywords" ${defaultMode==='mywords'?'checked':''} hidden>
+  <div class="wt-card-content">
+    <div class="wt-card-title">MyWords</div>
+    <div class="wt-card-sub">自分の苦手単語から出題</div>
+  </div>
+</label>
+        </div>
+      </div>
+
+      <!-- レベル選択 -->
+      <div style="margin-bottom:24px;">
+        <h3 style="margin-bottom:12px;">レベルを選択してください</h3>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+          ${['A','B','C','D','E'].map(l=>`
+            <label class="wt-level-btn" data-level="${l}">
+              <input type="checkbox" class="wt-level" value="${l}" ${l==='A' ? 'checked':''} hidden>
+              <div class="wt-level-circle">${l}</div>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- 出題数選択 -->
+      <div style="margin-bottom:24px;">
+        <h3 style="margin-bottom:12px;">出題数を選択してください</h3>
+        <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center;">
+          ${[20,50,100].map(n=>`
+            <label class="wt-count-card">
+              <input type="radio" name="wt-count" value="${n}" ${n===20?'checked':''} hidden>
+              <div class="wt-card-content">
+                <div class="wt-card-title">${n}問</div>
+              </div>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- ボタン -->
+      <div style="text-align:center;margin-top:24px;">
+        <button class="btn-plain btn-primary" id="wt-start" style="padding:10px 24px;font-size:16px;">テスト開始</button>
+        <button class="btn-plain" id="wt-back" style="padding:10px 24px;font-size:16px;margin-left:8px;">戻る</button>
+      </div>
+    </div>
+
+    <!-- モーダル用 -->
+    <div id="range-modal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;z-index:1000;">
+      <div style="background:#fff;padding:24px;border-radius:12px;max-width:300px;width:100%;text-align:center;">
+        <h3 style="margin-bottom:12px;">出題範囲を入力</h3>
+        <div style="margin-bottom:12px;">
+          <label>From: <input type="number" id="range-from" style="width:70px; height:30px; font-size:16px;"></label>
+          <label style="margin-left:12px;">
+To: <input type="number" id="range-to" style="width:70px; height:30px; font-size:16px;"></label>
+        </div>
+        <div>
+          <button class="btn-plain btn-primary" id="range-ok" style="margin-right:8px;">OK</button>
+          <button class="btn-plain" id="range-cancel">キャンセル</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // 戻るボタン
+  document.getElementById('wt-back').addEventListener('click', renderTestMenu);
+
+ // モードカード選択ハイライト
+document.querySelectorAll('.wt-mode-card').forEach(label => {
+  label.addEventListener('click', () => {
+    document.querySelectorAll('.wt-mode-card input').forEach(inp => inp.checked = false);
+    const input = label.querySelector('input');
+    input.checked = true;
+
+    // MyWords選択時はレベルボタンを無効化
+    const levelBtns = document.querySelectorAll('.wt-level-btn input');
+    if (input.value === 'mywords') {
+      levelBtns.forEach(btn => btn.disabled = true);
+      document.querySelectorAll('.wt-level-btn').forEach(lbl => lbl.classList.add('disabled'));
+    } else {
+      levelBtns.forEach(btn => btn.disabled = false);
+      document.querySelectorAll('.wt-level-btn').forEach(lbl => lbl.classList.remove('disabled'));
+    }
+  });
+});
+
+
+
+// ページ初期表示時にMyWordsモードが選択されていたらレベルボタンを無効化
+if (defaultMode === 'mywords') {
+  document.querySelectorAll('.wt-level-btn input').forEach(btn => btn.disabled = true);
+  document.querySelectorAll('.wt-level-btn').forEach(lbl => lbl.classList.add('disabled'));
+}
+
+  // レベルボタン選択＆範囲モーダル
+  let activeLevelInput = null;
+  document.querySelectorAll('.wt-level-btn').forEach(label=>{
+    label.addEventListener('click', ()=>{
+      const input = label.querySelector('input');
+      input.checked = !input.checked;
+      label.classList.toggle('selected', input.checked);
+      if(input.checked){
+        activeLevelInput = input;
+        const prev = input.dataset.range ? input.dataset.range.split('-') : ['1','50'];
+        document.getElementById('range-from').value = prev[0];
+        document.getElementById('range-to').value = prev[1];
+        document.getElementById('range-modal').style.display = 'flex';
+      } else {
+        input.dataset.range = '';
+      }
+    });
+  });
+
+  // モーダルOK
+  document.getElementById('range-ok').addEventListener('click', ()=>{
+    if(!activeLevelInput) return;
+    const from = document.getElementById('range-from').value;
+    const to = document.getElementById('range-to').value;
+    if(!from || !to || isNaN(from) || isNaN(to)){
+      alert('正しい数字を入力してください');
+      return;
+    }
+    activeLevelInput.dataset.range = `${from}-${to}`;
+    document.getElementById('range-modal').style.display = 'none';
+    activeLevelInput = null;
+  });
+
+  // モーダルキャンセル
+  document.getElementById('range-cancel').addEventListener('click', ()=>{
+    if(activeLevelInput){
+      activeLevelInput.checked = false;
+      activeLevelInput.classList.remove('selected');
+      activeLevelInput = null;
+    }
+    document.getElementById('range-modal').style.display = 'none';
+  });
+
+  // 出題数選択カード
+  document.querySelectorAll('.wt-count-card').forEach(label=>{
+    label.addEventListener('click', ()=>{
+      document.querySelectorAll('.wt-count-card input').forEach(inp=>inp.checked=false);
+      label.querySelector('input').checked = true;
+    });
+  });
+
+  // テスト開始
+ document.getElementById('wt-start').addEventListener('click', () => {
+  const mode = document.querySelector('input[name="wt-mode"]:checked').value;
+  const count = Number(document.querySelector('input[name="wt-count"]:checked').value);
+
+  let levels = [];
+  if (mode !== 'mywords') {
+    levels = Array.from(document.querySelectorAll('.wt-level:checked')).map(x => {
+      const [from, to] = (x.dataset.range || '1-50').split('-');
+      return { level: x.value, from: Number(from), to: Number(to) };
+    });
+    if (levels.length === 0) {
+      alert('レベルを1つ以上選んでください');
+      return;
+    }
+  }
+
+  if (mode === 'mywords') {
+    if (myWordList.length === 0) {
+      alert('マイ単語リストに単語がありません');
+      return;
+    }
+    // MyWordsテストは英→日固定
+    startWordTest({
+      mode: 'en-ja',
+      levels: [{ level: '', from: 1, to: myWordList.length }],
+      count: count,
+      words: shuffleArray([...myWordList])  // リストからシャッフル
+    });
+  } else {
+    startWordTest({ mode, levels, count });
+  }
+});
+
+
+  // 元のスタイル
+  const styleTag = document.createElement('style');
+  styleTag.innerHTML = `
+    .wt-mode-card { flex: 1 1 200px; cursor: pointer; border: 2px solid #d0d7dc; border-radius: 12px; transition: all 0.2s ease; }
+    .wt-mode-card:hover { border-color: #007bff; box-shadow: 0 0 0 3px rgba(0,123,255,0.1); }
+    .wt-card-content { padding:16px; text-align:center; }
+    .wt-card-title { font-weight:700; font-size:18px; margin-bottom:4px; }
+    .wt-card-sub { color:#555; font-size:14px; }
+    .wt-mode-card input:checked + .wt-card-content { background-color:#cce4ff; color:#003366; border-radius:10px; border-color:#80bfff; }
+    .wt-level-btn { cursor: pointer; border-radius: 50%; width: 50px; height: 50px; display: flex; align-items: center; justify-content: center; border: 2px solid #d0d7dc; font-weight: bold; font-size: 18px; transition: all 0.2s ease; }
+    .wt-level-btn:hover { border-color: #007bff; box-shadow: 0 0 0 3px rgba(0,123,255,0.1); }
+    .wt-level-btn input:checked + .wt-level-circle, .wt-level-btn input:checked + div { background-color:#cce4ff; color:#003366; border-color:#80bfff; }
+    .wt-level-circle { width:100%; height:100%; display:flex; align-items:center; justify-content:center; border-radius:50%; }
+    .wt-count-card { flex: 1 1 80px; cursor: pointer; border: 2px solid #d0d7dc; border-radius: 12px; transition: all 0.2s ease; }
+    .wt-count-card:hover { border-color: #007bff; box-shadow: 0 0 0 3px rgba(0,123,255,0.1); }
+    .wt-count-card input:checked + .wt-card-content { background-color:#cce4ff; color:#003366; border-radius:10px; border-color:#80bfff; }
+    .wt-level-btn.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+  `;
+  document.head.appendChild(styleTag);
+}
+
+// ===== Firebase & Utility =====
+async function loadWordData() {
+  const levels = ['A','B','C','D','E'];
+  const wordData = {};
+  for(const lvl of levels){
+    const docRef = doc(db,'wordLists',lvl);
+    const docSnap = await getDoc(docRef);
+    if(docSnap.exists()){
+      const data = docSnap.data();
+      wordData[lvl] = data.words || [];
+    } else {
+      console.warn(`レベル ${lvl} のデータが見つかりません`);
+      wordData[lvl] = [];
+    }
+  }
+  return wordData;
+}
+function shuffleArray(array){ return array.sort(()=>Math.random()-0.5); }
+
+function selectWordsForTest(wordData, levels){
+  const selected = [];
+  for(const lvl of levels){
+    const allWords = wordData[lvl.level] || [];
+    const from = Math.max(0,lvl.from-1);
+    const to = Math.min(allWords.length,lvl.to);
+    selected.push(...allWords.slice(from,to));
+  }
+  return shuffleArray(selected);
+}
+
+function makeChoices(correctWord, allWords){
+  // 同じ品詞の候補
+  const samePOS = allWords.filter(w => w.pos === correctWord.pos && w.ja !== correctWord.ja);
+  let choices = shuffleArray(samePOS).slice(0, 3);
+
+  // もし3つに満たなければ他の単語から補充
+  if (choices.length < 3) {
+    const others = allWords.filter(w => w.ja !== correctWord.ja && !choices.includes(w));
+    const needed = 3 - choices.length;
+    choices.push(...shuffleArray(others).slice(0, needed));
+  }
+
+  return shuffleArray([correctWord.ja, ...choices.map(w => w.ja)]);
+}
+
+// ===== テスト本体 =====
+let testWords = [];
+let currentIndex = 0;
+let score = 0;
+let userAnswers = [];
+let testMode = "en-ja";
+let streakCount = 0;
+
+async function startWordTest({ mode, levels, count, words = null }) {
+  let selectedWords;
+  if (words) {
+    selectedWords = words.slice(0, count);
+  } else {
+    const wordData = await loadWordData();
+    selectedWords = selectWordsForTest(wordData, levels).slice(0, count);
+  }
+
+  testMode = mode;
+  testWords = selectedWords;
+  currentIndex = 0;
+  score = 0;
+  userAnswers = [];
+  streakCount = 0;
+  nextQuestion();
+}
+
+function nextQuestion() {
+  // ✅ フィードバック中は次の問題を出さない
+  const oldFeedback = document.getElementById('answer-feedback');
+  if (oldFeedback) return;
+
+  // ✅ 最後の問題が終わったら結果画面へ
+  if (!testWords || currentIndex >= testWords.length) {
+    renderTestResult();
+    return;
+  }
+
+  const w = testWords[currentIndex];
+  if (testMode === "en-ja") {
+    const choices = makeChoices(w, testWords);
+    renderWordQuestion(w.en, choices, currentIndex, testWords.length);
+  } else if (testMode === "ja-en") {
+    renderWordQuestionInput(w.ja, w.en, currentIndex, testWords.length);
+  }
+  currentIndex++;
+}
+
+
+// ===== 英→日 =====
+function renderWordQuestion(question, choices, index, total, timeLeft = 3) {
+  document.getElementById("content").innerHTML = `
+    <div id="test-area" class="card" style="max-width:600px;margin:auto;padding:24px;text-align:center;">
+      <h2>問題 ${index + 1} / ${total}</h2>
+      <div style="margin:16px 0;font-size:36px;font-weight:bold;">${question}</div>
+      <div id="choice-container" style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px;">
+        ${choices
+          .map(
+            (c, i) =>
+              `<button class="btn-plain btn-choice" data-choice="${i}" style="padding:20px;font-size:20px;">${c}</button>`
+          )
+          .join("")}
+      </div>
+      <div style="margin-top:20px;height:8px;background:#eee;border-radius:4px;">
+        <div id="time-bar" style="height:100%;width:100%;background:#007bff;border-radius:4px;"></div>
+      </div>
+    </div>
+  `;
+
+  const bar = document.getElementById("time-bar");
+  let start = Date.now();
+  window.choiceLocked = false; // ← 新規：問題ごとにロック解除
+
+  const timer = setInterval(() => {
+    const elapsed = (Date.now() - start) / 1000;
+    bar.style.width = `${Math.max(0, 100 * (1 - elapsed / timeLeft))}%`;
+    if (elapsed >= timeLeft) {
+      clearInterval(timer);
+      if (!window.choiceLocked) {
+        window.choiceLocked = true;
+        disableChoices();
+        checkAnswer(null, choices);
+      }
+    }
+  }, 30);
+
+  // 選択肢クリック処理（1回だけ回答可）
+  document.querySelectorAll(".btn-choice").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      if (window.choiceLocked) return; // ← 新規：すでにクリック済みなら無視
+      window.choiceLocked = true;
+
+      clearInterval(timer);
+      disableChoices();
+
+      checkAnswer(btn.dataset.choice, choices);
+    });
+  });
+
+  // 選択肢を無効化するヘルパー関数
+  function disableChoices() {
+    document.querySelectorAll(".btn-choice").forEach((b) => {
+      b.style.pointerEvents = "none"; // クリック無効化
+      b.style.opacity = "0.6"; // 見た目で無効っぽく
+    });
+  }
+}
+
+// ===== 日→英（入力形式） =====
+function renderWordQuestionInput(question, answer, index, total, timeLeft = 10) {
+  const masked = answer[0] + " " + "_ ".repeat(answer.length - 1);
+  document.getElementById("content").innerHTML = `
+    <div id="test-area" class="card" style="max-width:600px;margin:auto;padding:24px;text-align:center;">
+      <h2>問題 ${index + 1} / ${total}</h2>
+      <div style="margin:16px 0;font-size:28px;">${question}</div>
+      <div id="masked-display" style="margin-bottom:16px;font-size:26px;letter-spacing:6px;color:#555;">${masked}</div>
+      <input id="answer-input" type="text" placeholder="英単語を入力"
+        style="padding:12px;font-size:22px;width:80%;text-align:center;border:1px solid #ccc;border-radius:8px;">
+      <div style="margin-top:16px;">
+        <button class="btn-plain btn-primary" id="submit-answer" style="padding:10px 24px;">決定</button>
+      </div>
+      <div style="margin-top:20px;height:8px;background:#eee;border-radius:4px;">
+        <div id="time-bar" style="height:100%;width:100%;background:#28a745;border-radius:4px;"></div>
+      </div>
+    </div>
+  `;
+
+  const bar = document.getElementById("time-bar");
+  let start = Date.now();
+  const timer = setInterval(() => {
+    const elapsed = (Date.now() - start) / 1000;
+    bar.style.width = `${Math.max(0, 100 * (1 - elapsed / timeLeft))}%`;
+    if (elapsed >= timeLeft) {
+      clearInterval(timer);
+      checkAnswerInput("", answer);
+    }
+  }, 30);
+
+  const input = document.getElementById("answer-input");
+  const maskedDisplay = document.getElementById("masked-display");
+
+  // 入力リアルタイム反映（2文字目から反映）
+input.addEventListener("input", () => {
+  const val = input.value.toLowerCase();
+
+  // 入力の先頭文字（頭文字）は無視して、2文字目以降だけ使う
+  const subVal = val.slice(1);
+
+  let display = answer[0] + " ";
+  for (let i = 1; i < answer.length; i++) {
+    display += (subVal[i - 1] ? subVal[i - 1] : "_") + " ";
+  }
+
+  maskedDisplay.textContent = display.trim();
+});
+
+  document.getElementById("submit-answer").addEventListener("click", () => {
+    clearInterval(timer);
+    const val = input.value.trim();
+    checkAnswerInput(val, answer);
+  });
+}
+
+
+// ===== 正解・不正解判定と表示（修正版） =====
+function checkAnswer(selectedIndex, choices) {
+  // currentIndex は次に進むために ++ されている設計 -> 判定対象は currentIndex - 1
+  if (currentIndex <= 0 || currentIndex - 1 >= testWords.length) return;
+  const w = testWords[currentIndex - 1];
+  const selected = selectedIndex !== null ? choices[selectedIndex] : null;
+  const isCorrect = selected === w.ja;
+
+  // 結果を記録（詳細画面用）
+  userAnswers.push({ word: w, selected: selected, correct: w.ja });
+
+  if (isCorrect) {
+    // 正解
+    score++;
+    streakCount++;
+    // MyWords に入っているなら進捗を更新（en で管理）
+    updateMyWordProgress(w.en);
+  } else {
+    // 不正解：MyWords に自動追加（重複は addToMyWordList が弾く）
+    addToMyWordList(w);
+    streakCount = 0;
+  }
+
+  updateStreakDisplay();
+  // フィードバック表示（〇/×）してから次の問題へ
+  showAnswerFeedback(isCorrect, nextQuestion);
+}
+
+// ===== 日→英（入力形式）の判定で MyWords 更新等を行う =====
+function checkAnswerInput(userInput, correct) {
+  if (currentIndex <= 0 || currentIndex - 1 >= testWords.length) return;
+  const isCorrect = String(userInput || "").trim().toLowerCase() === String(correct || "").trim().toLowerCase();
+
+  // 詳細保存（英語を correct、ja は空文字かあればセット）
+  userAnswers.push({ word: { en: correct, ja: "" }, selected: userInput, correct: correct });
+
+  if (isCorrect) {
+    score++;
+    streakCount++;
+    // ja→en モードでも MyWords が存在していたら進捗更新
+    updateMyWordProgress(correct);
+  } else {
+    // 不正解なら MyWords に追加（ja は空だが管理上は en があれば OK）
+    addToMyWordList({ en: correct, ja: "" });
+    streakCount = 0;
+  }
+
+  updateStreakDisplay();
+  showAnswerFeedback(isCorrect, nextQuestion);
+}
+
+// MyWords に追加する関数（重複チェックあり）
+// 追加：MyWords に単語を追加（重複チェックあり） — Firestore に保存
+async function addToMyWordList(wordObj) {
+  if (!wordObj || !wordObj.en) return;
+
+  // 重複チェック
+  if (myWordList.some(w => w.en === wordObj.en)) {
+    // 既にある -> 何もしない
+    return;
+  }
+
+  // ローカルリスト更新
+  myWordList.push({
+    en: wordObj.en,
+    ja: wordObj.ja || "",
+    pos: wordObj.pos || "",
+    level: wordObj.level || "",
+    correctCount: 0
+  });
+
+  // Firestore に保存（非同期）
+  await saveMyWordListToFirestore();
+}
+
+// 更新：正解回数を増やす（5回で削除） — Firestore に保存
+async function updateMyWordProgress(en) {
+  if (!en) return;
+  const target = myWordList.find(item => item.en === en);
+  if (!target) return;
+  target.correctCount = (target.correctCount || 0) + 1;
+  if (target.correctCount >= 5) {
+    // リストから削除
+    myWordList = myWordList.filter(item => item.en !== en);
+  }
+  await saveMyWordListToFirestore();
+}
+
+// ===== 正解・不正解フィードバック表示（中央配置・大きめ・重複防止＋フェードアウト後に遷移） =====
+let feedbackTimeout = null; // グローバルで保持（前のタイマーを止める用）
+
+function showAnswerFeedback(isCorrect, callback) {
+  // 既存のフィードバックを強制削除
+  if (document.getElementById('answer-feedback')) return;
+  const oldFeedback = document.getElementById('answer-feedback');
+  if (oldFeedback) oldFeedback.remove();
+
+  // 前回のタイマーがあればリセット
+  if (feedbackTimeout) clearTimeout(feedbackTimeout);
+
+  // テスト部分の中央を基準に表示
+  const testArea = document.getElementById('test-area') || document.body;
+  const rect = testArea.getBoundingClientRect();
+
+  const feedback = document.createElement('div');
+  feedback.id = 'answer-feedback';
+  feedback.textContent = isCorrect ? '〇' : '×';
+
+  // ===== スタイル設定 =====
+  feedback.style.position = 'absolute';
+  feedback.style.left = `${rect.width / 2}px`;
+  feedback.style.top = `${rect.height / 2.2}px`; // 少し上寄りに（中央近く）
+  feedback.style.transform = 'translate(-50%, -50%)';
+  feedback.style.fontSize = '180px'; // 大きく！
+  feedback.style.fontWeight = '900';
+  feedback.style.color = isCorrect
+    ? 'rgba(0, 180, 0, 0.4)'
+    : 'rgba(255, 0, 0, 0.4)';
+  feedback.style.zIndex = '9999';
+  feedback.style.pointerEvents = 'none';
+  feedback.style.opacity = '1';
+  feedback.style.transition = 'opacity 0.8s ease';
+  feedback.style.textShadow = '0 0 20px rgba(0,0,0,0.2)';
+
+  // ===== テスト領域内に追加 =====
+  testArea.appendChild(feedback);
+
+  // ===== フェードアウトして削除 + 次の問題へ =====
+  feedbackTimeout = setTimeout(() => {
+    feedback.style.opacity = '0';
+    setTimeout(() => {
+      feedback.remove();
+      if (typeof callback === 'function') callback();
+    }, 800);
+  }, 800);
+}
+
+
+function updateStreakDisplay() {
+  const card = document.querySelector('.card');
+  if (!card) return; // 問題カードがない場合は何もしない
+
+  let streakEl = document.getElementById('streak-display');
+  if (!streakEl) {
+    streakEl = document.createElement('div');
+    streakEl.id = 'streak-display';
+    streakEl.style.position = 'absolute';
+    streakEl.style.top = '8px';
+    streakEl.style.right = '16px';
+    streakEl.style.fontSize = '16px';
+    streakEl.style.fontWeight = 'bold';
+    streakEl.style.color = '#28a745';
+    card.style.position = 'relative'; // カードを基準に絶対配置
+    card.appendChild(streakEl);
+  }
+
+  if (streakCount >= 3) {
+    streakEl.textContent = `${streakCount}問連続正解中！`;
+    streakEl.style.display = 'block';
+  } else {
+    streakEl.style.display = 'none';
+  }
+}
+
+// ===== 結果・詳細画面 =====
+
+// Firestore に結果を保存する関数
+// ===== 単語テスト結果を Firestore に保存 =====
+async function saveWordTestResult(score, totalQuestions, answersArray = []) {
+  try {
+    if (!currentUser) {
+      alert("ログインしてください");
+      return;
+    }
+
+    const uid = currentUser.id;
+
+    const answers = (answersArray || []).map(q => ({
+      question: q.question || q.word || '',
+      selected: q.userAnswer || q.selected || '',
+      correctAnswer: q.correctAnswer || q.correct || '',
+      isCorrect: q.isCorrect === true || q.userAnswer === q.correctAnswer,
+      score: q.isCorrect === true || q.userAnswer === q.correctAnswer ? 1 : 0
+    }));
+
+    await addDoc(collection(db, "results"), {
+      uid,
+      type: "単語テスト",
+      score,
+      fullScore: totalQuestions,
+      answers,
+      createdAt: new Date()
+    });
+
+    console.log("✅ 単語テスト結果をFirestoreに保存しました");
+  } catch (err) {
+    console.error("❌ saveWordTestResult error", err);
+    alert("保存中にエラーが発生しました: " + err.message);
+  }
+}
+
+
+// renderTestResult — 結果画面を描画し、保存を呼ぶ
+function renderTestResult() {
+  // streak 非表示（あれば）
+  const streakEl = document.getElementById('streak-display');
+  if (streakEl) streakEl.style.display = 'none';
+
+  // Firestore に結果を保存（非同期）
+  try {
+    saveWordTestResult(score, testWords.length);
+  } catch (e) {
+    console.error('saveWordTestResult 呼び出しエラー:', e);
+  }
+
+  // 結果画面を描画
+  document.getElementById("content").innerHTML = `
+    <div class="card" style="max-width:600px;margin:auto;padding:24px;text-align:center;">
+      <h2>テスト終了</h2>
+      <p style="font-size:28px;font-weight:bold;">正答数: ${score} / ${testWords.length}</p>
+      <div style="margin-top:16px;">
+        <button class="btn-plain btn-primary" id="btn-retry">もう一度</button>
+        <button class="btn-plain" id="btn-menu">テストメニューに戻る</button>
+        <button class="btn-plain" id="btn-details" style="margin-left:8px;">くわしく見る</button>
+      </div>
+    </div>
+  `;
+
+  // イベントリスナー
+  document.getElementById("btn-retry").addEventListener("click", renderWordTestMenu);
+  document.getElementById("btn-menu").addEventListener("click", renderTestMenu);
+  document.getElementById("btn-details").addEventListener("click", renderTestDetails);
+}
+
+
+
+// ===== 解答詳細画面 =====
+function renderTestDetails() {
+  document.getElementById("content").innerHTML = `
+    <div class="card" style="max-width:700px;margin:auto;padding:24px;">
+      <h2 style="text-align:center;margin-bottom:16px;">解答詳細</h2>
+      <div style="max-height:500px;overflow-y:auto;" id="detail-answers">
+        <!-- 個別解答はJSで追加 -->
+      </div>
+      <div style="text-align:center;margin-top:16px;">
+        <button class="btn-plain btn-primary" id="btn-retry-detail" style="margin-right:8px;">もう一度</button>
+        <button class="btn-plain btn-primary" id="btn-result-detail">テスト結果に戻る</button>
+        <button class="btn-plain btn-primary" id="btn-menu-detail" style="margin-left:8px;">テストメニューに戻る</button>
+      </div>
+    </div>
+  `;
+
+  // ボタンイベント
+  document.getElementById("btn-retry-detail").addEventListener("click", renderWordTestMenu);
+  document.getElementById("btn-result-detail").addEventListener("click", renderTestResult);
+  document.getElementById("btn-menu-detail").addEventListener("click", renderTestMenu);
+
+  // 個別解答の描画と「マイ単語リスト」ボタン設定
+  const container = document.getElementById('detail-answers');
+  container.innerHTML = ''; // クリア
+
+  userAnswers.forEach((ua, i) => {
+    const item = document.createElement('div');
+    item.style.border = '1px solid #ddd';
+    item.style.borderRadius = '8px';
+    item.style.padding = '12px';
+    item.style.marginBottom = '12px';
+    item.style.backgroundColor = ua.selected === ua.correct ? '#d4edda' : '#f8d7da';
+
+    const info = document.createElement('div');
+    info.innerHTML = `
+      <strong>Q${i+1}: ${ua.word.en}</strong><br>
+      あなたの解答: <span style="font-weight:bold;">${ua.selected || '（未回答）'}</span><br>
+      正解: <span style="font-weight:bold;">${ua.correct}</span><br>
+      <span style="color:${ua.selected===ua.correct?'green':'red'}; font-weight:bold;">
+        ${ua.selected===ua.correct?'正解':'不正解'}
+      </span>
+    `;
+
+    const btn = document.createElement('button');
+    btn.className = 'btn-plain btn-secondary';
+    btn.style.marginTop = '6px';
+
+    const alreadyAdded = myWordList.some(w => w.en === ua.word.en);
+    if (alreadyAdded) {
+      btn.textContent = '追加済み';
+      btn.style.backgroundColor = '#aaa';
+      btn.disabled = true;
+    } else {
+      btn.textContent = 'マイ単語リストに追加';
+      btn.addEventListener('click', () => {
+        addToMyWordList(ua.word);
+        btn.textContent = '追加済み';
+        btn.style.backgroundColor = '#aaa';
+        btn.disabled = true;
+      });
+    }
+
+    item.appendChild(info);
+    item.appendChild(btn);
+    container.appendChild(item);
+  });
+}
+
+
+// ===== マイ単語リスト =====
+// === Firestore に保存 / 読み込みする関数（ユーザー別 MyWords） ===
+
+// Firestoreへ保存
+async function saveMyWordListToFirestore() {
+  if (!currentUser) {
+    console.warn("ログインしていないので保存しません");
+    return;
+  }
+  try {
+    const uid = currentUser.id;
+    await setDoc(doc(db, "myWords", uid), {
+      words: myWordList,
+      updatedAt: new Date()
+    });
+    console.log("✅ Firestoreにマイ単語リストを保存:", myWordList.length, "語");
+  } catch (e) {
+    console.error("❌ Firestore保存エラー:", e);
+  }
+}
+
+// Firestoreから読み込み
+async function loadMyWordListFromFirestore() {
+  if (!currentUser) {
+    console.warn('loadMyWordListFromFirestore: not logged in');
+    myWordList = [];
+    return [];
+  }
+  try {
+    const uid = currentUser.id;
+    const dSnap = await getDoc(doc(db, 'myWords', uid));
+    if (!dSnap.exists()) {
+      console.log('ℹ️ myWordsにデータなし（初回ユーザー）');
+      myWordList = [];
+      return myWordList;
+    }
+    const data = dSnap.data();
+    myWordList = Array.isArray(data.words) ? data.words : [];
+    console.log('✅ Firestoreからマイ単語リストを読み込み:', myWordList);
+    return myWordList;
+  } catch (err) {
+    console.error('❌ loadMyWordListFromFirestore error', err);
+    myWordList = [];
+    return myWordList;
+  }
+}
+
+// ✅ マイ単語リスト画面の描画（Firestoreから最新を取得して表示）
+async function renderMyWordList() {
+  if (!currentUser) {
+    document.getElementById('content').innerHTML = `<p style="text-align:center;">ログインしてください。</p>`;
+    return;
+  }
+
+  // 🔽 Firestoreから最新データをロード
+  await loadMyWordListFromFirestore();
+
+  // 🔽 表示を生成
+  document.getElementById('content').innerHTML = `
+    <div class="card" style="max-width:800px;margin:auto;padding:24px;">
+      <h2 style="text-align:center;">マイ単語リスト</h2>
+      <table style="width:100%;border-collapse:collapse;margin-top:16px;">
+        <thead>
+          <tr style="background:#f0f0f0;">
+            <th style="padding:8px;border:1px solid #ccc;">英語</th>
+            <th style="padding:8px;border:1px solid #ccc;">日本語</th>
+            <th style="padding:8px;border:1px solid #ccc;">品詞</th>
+            <th style="padding:8px;border:1px solid #ccc;">レベル</th>
+            <th style="padding:8px;border:1px solid #ccc;">正答数</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${myWordList.length === 0
+            ? `<tr><td colspan="5" style="text-align:center;padding:12px;">まだ単語がありません</td></tr>`
+            : myWordList.map(w => `
+              <tr>
+                <td style="padding:8px;border:1px solid #ccc;">${w.en}</td>
+                <td style="padding:8px;border:1px solid #ccc;">${w.ja}</td>
+                <td style="padding:8px;border:1px solid #ccc;">${w.pos || '-'}</td>
+                <td style="padding:8px;border:1px solid #ccc;">${w.level || '-'}</td>
+                <td style="padding:8px;border:1px solid #ccc;color:#28a745;">${'●'.repeat(w.correctCount || 0)}</td>
+              </tr>
+            `).join('')}
+        </tbody>
+      </table>
+      <div style="text-align:center;margin-top:16px;">
+        <button class="btn-plain btn-primary" id="mywords-test-btn">MyWordsでテスト</button>
+      </div>
+    </div>
+  `;
+
+// MyWordsでテストボタンの動作
+document.getElementById('mywords-test-btn').addEventListener('click', () => {
+  renderWordTestMenu('mywords'); // ← モード指定して画面へ遷移
+});
+
+}
+
+
+// ===== 単語リスト管理画面 =====
+async function renderWordList() {
+  document.getElementById('content').innerHTML = `
+    <div class="card">
+      <h2>単語リスト管理</h2>
+      
+      <div style="margin-bottom:12px;">
+        <label>レベル選択：</label>
+        <select id="wordlist-level">
+          <option value="A">A</option>
+          <option value="B">B</option>
+          <option value="C">C</option>
+          <option value="D">D</option>
+          <option value="E">E</option>
+        </select>
+        <button class="btn-plain btn-primary" id="load-wordlist">読み込み</button>
+      </div>
+
+      <div id="wordlist-table-container" style="margin-top:12px;">
+        <table id="wordlist-table" class="word-table">
+          <thead>
+            <tr>
+              <th style="width:60px;">#</th>
+              <th>英語</th>
+              <th>日本語</th>
+              <th>品詞</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <button class="btn-plain btn-secondary" id="add-row" style="margin-top:10px;">＋ 行を追加</button>
+      </div>
+
+      <h3 style="margin-top:20px;">Excelから貼り付け</h3>
+      <p style="font-size:0.9em;color:#555;">「英語」→「日本語」→「品詞」の順にタブ区切りで貼り付けできます。</p>
+      <textarea id="paste-area" rows="5" style="width:100%;"></textarea>
+      <button class="btn-plain btn-secondary" id="paste-add">貼り付け内容を追加</button>
+
+      <div style="margin-top:20px;">
+        <button class="btn-plain btn-primary" id="save-wordlist">保存</button>
+        <button class="btn-plain" id="back-main">戻る</button>
+      </div>
+    </div>
+  `;
+
+  // 戻るボタン
+  document.getElementById('back-main').addEventListener('click', renderTestMenu);
+
+  // 「行を追加」ボタン
+  document.getElementById('add-row').addEventListener('click', ()=>{
+    addWordRow();
+  });
+
+  // 「読み込み」ボタン
+  document.getElementById('load-wordlist').addEventListener('click', async ()=>{
+    const level = document.getElementById('wordlist-level').value;
+    await loadWordList(level);
+  });
+
+  // 「貼り付け追加」ボタン
+  document.getElementById('paste-add').addEventListener('click', ()=>{
+    const text = document.getElementById('paste-area').value.trim();
+    if(!text) return;
+    const rows = text.split(/\n/).map(r => r.split(/\t/));
+    for(const row of rows){
+      if(row.length >= 2){
+        addWordRow(row[0], row[1], row[2] || '');
+      }
+    }
+  });
+
+  // 「保存」ボタン
+  document.getElementById('save-wordlist').addEventListener('click', async ()=>{
+    const level = document.getElementById('wordlist-level').value;
+    await saveWordList(level);
+  });
+}
+
+// ===== 行を追加する関数 =====
+function addWordRow(en = '', ja = '', pos = '') {
+  const table = document.getElementById('wordlist-table').querySelector('tbody');
+  const index = table.children.length + 1;
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>${index}</td>
+    <td contenteditable="true">${en}</td>
+    <td contenteditable="true">${ja}</td>
+    <td contenteditable="true">${pos}</td>
+    <td><button class="btn-plain btn-danger delete-row">削除</button></td>
+  `;
+  table.appendChild(tr);
+
+  tr.querySelector('.delete-row').addEventListener('click', ()=>{
+    tr.remove();
+    updateWordRowNumbers();
+  });
+}
+
+// ===== 行番号を更新 =====
+function updateWordRowNumbers(){
+  const rows = document.querySelectorAll('#wordlist-table tbody tr');
+  rows.forEach((tr, i)=>{
+    tr.children[0].textContent = i + 1;
+  });
+}
+
+// ===== 単語リスト読み込み =====
+async function loadWordList(level) {
+  const tableBody = document.querySelector('#wordlist-table tbody');
+  tableBody.innerHTML = '読み込み中...';
+  try {
+    const docRef = doc(db, 'wordLists', level);
+    const snap = await getDoc(docRef);
+    const data = snap.exists() ? snap.data().words || [] : [];
+
+    // 表をクリアして再描画
+    tableBody.innerHTML = '';
+    for(const w of data){
+      addWordRow(w.en, w.ja, w.pos);
+    }
+  } catch(err) {
+    console.error('単語リスト読み込みエラー:', err);
+    tableBody.innerHTML = '<tr><td colspan="5">読み込みに失敗しました</td></tr>';
+  }
+}
+
+// ===== 単語リスト保存 =====
+async function saveWordList(level) {
+  try {
+    const rows = Array.from(document.querySelectorAll('#wordlist-table tbody tr'));
+    const words = rows.map(tr=>{
+      const tds = tr.querySelectorAll('td');
+      return {
+        en: tds[1].textContent.trim(),
+        ja: tds[2].textContent.trim(),
+        pos: tds[3].textContent.trim(),
+      };
+    });
+    const docRef = doc(db, 'wordLists', level);
+    await setDoc(docRef, { words });
+    alert('保存しました！');
+  } catch(err) {
+    console.error('単語リスト保存エラー:', err);
+    alert('保存に失敗しました');
+  }
+}
+
+
+
 // ===== BNP リアルタイム監視 =====
 function initBnpWatcher() {
   if (!currentUser || !currentUser.id) return;
@@ -405,6 +1527,7 @@ if(currentUser && currentUser.id){
 
     
     // ---------- 過去の成績（テスト種別選択 + 履歴表示） ----------
+
 function renderHistory(){
   // まず種別選択カードを表示
   document.getElementById('content').innerHTML = `
@@ -414,14 +1537,14 @@ function renderHistory(){
       <div id="history-type-cards" style="display:flex;gap:12px;flex-wrap:wrap;margin-top:12px;">
         <div class="card" style="flex:1;min-width:180px;cursor:pointer" data-type="速読力測定テスト">速読力測定テスト</div>
         <div class="card" style="flex:1;min-width:180px;cursor:pointer" data-type="文法特訓">文法特訓</div>
-        <div class="card" style="flex:1;min-width:180px;cursor:pointer;opacity:0.6">単語テスト（未実装）</div>
+        <div class="card" style="flex:1;min-width:180px;cursor:pointer" data-type="単語テスト">単語テスト</div>
         <div class="card" style="flex:1;min-width:180px;cursor:pointer;opacity:0.6">リスニング特訓（未実装）</div>
       </div>
       <div id="history-list" style="margin-top:16px;"></div>
     </div>
   `;
 
-  // 有効なカードだけクリックを有効化（今は「速読力測定テスト」だけ）
+  // 有効なカードだけクリックを有効化
   const cardContainer = document.getElementById('history-type-cards');
   if(!cardContainer) return;
   const cards = cardContainer.querySelectorAll('div[data-type]');
@@ -1959,116 +3082,254 @@ function renderGrammarResult(score, elapsedSec, answersRecord){
       });
     }
 
-    // ホーム画面描画
-    function renderHome(){
-      // ホームは「おしらせ」を表示する領域
-      document.getElementById('content').innerHTML = `
-        <div class="card">
-          <h2>ホーム</h2>
-          <p>ようこそ、${currentUser ? escapeHtml(currentUser.nickname || currentUser.id) : 'ゲスト'} さん。</p>
+// ホーム画面描画
+function renderHome() {
+  const today = new Date();
+  const privateExamDate = new Date('2026-02-10');
+  const publicExamDate = new Date('2026-03-11');
+
+  const privateDiff = Math.ceil((privateExamDate - today) / (1000 * 60 * 60 * 24));
+  const publicDiff = Math.ceil((publicExamDate - today) / (1000 * 60 * 60 * 24));
+
+  document.getElementById('content').innerHTML = `
+    <div class="home-layout">
+      <div class="card home-card">
+        <h2>ようこそ、${currentUser ? escapeHtml(currentUser.nickname || currentUser.id) : 'ゲスト'} さん。</h2>
+        <p></p>
+
+      </div>
+
+      <div class="exam-side">
+        <div class="exam-card private-exam">
+          <h3>私立入試まで</h3>
+          <div class="exam-days">${privateDiff}日</div>
+          <div class="exam-date">（2026年2月10日 火）</div>
         </div>
-        <div class="card" id="notices-card">
-          <h3>おしらせ</h3>
-          <div id="notices-list" style="margin-top:12px;"></div>
-          <div id="notice-admin-controls" style="margin-top:12px;"></div>
+
+        <div class="exam-card public-exam">
+          <h3>公立入試まで</h3>
+          <div class="exam-days">${publicDiff}日</div>
+          <div class="exam-date">（2026年3月11日 水）</div>
         </div>
-      `;
-      loadNotices(); // 最新のお知らせを読み込んで表示
-      renderNoticeAdminControlsIfAllowed();
+      </div>
+    </div>
+
+    <div class="card" id="notices-card">
+      <h3>おしらせ</h3>
+      <div id="notices-list" style="margin-top:12px;"></div>
+      <div id="notice-admin-controls" style="margin-top:12px;"></div>
+    </div>
+  `;
+
+  // スタイル
+  const styleTag = document.createElement('style');
+  styleTag.innerHTML = `
+    /* レイアウト */
+    .home-layout {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: stretch;
+      gap: 20px;
+      justify-content: center;
+      margin: 20px auto 32px;
+      max-width: 1200px;
     }
 
-    // 管理者なら投稿UIを表示
-    function renderNoticeAdminControlsIfAllowed(){
-      const ctrl = document.getElementById('notice-admin-controls');
-      if(!ctrl) return;
-      ctrl.innerHTML = '';
-      if(currentUser && currentUser.role === 'admin'){
-        // 投稿フォーム（折りたたみ式のシンプルなインターフェース）
-        ctrl.innerHTML = `
-          <div style="display:flex;flex-direction:column;gap:8px">
-            <input id="new-notice-title" placeholder="タイトル" style="padding:8px;border-radius:6px;border:1px solid #d0d7dc;width:100%" />
-            <textarea id="new-notice-body" placeholder="本文" rows="4" style="padding:8px;border-radius:6px;border:1px solid #d0d7dc;width:100%"></textarea>
-            <div style="display:flex;gap:8px">
-              <button id="btn-create-notice" class="btn-plain btn-primary">投稿</button>
-              <button id="btn-refresh-notice" class="btn-plain">更新</button>
+    .home-card {
+      flex: 1 1 320px;
+      background: linear-gradient(135deg, #ffffff, #fafafa);
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .home-card:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 16px rgba(0,0,0,0.08);
+    }
+
+    .exam-side {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      flex: 1 1 300px;
+    }
+
+    /* カードデザイン */
+    .exam-card {
+      background: #ffffff;
+      border-radius: 14px;
+      text-align: center;
+      padding: 20px;
+      box-shadow: 0 3px 10px rgba(0,0,0,0.07);
+      border: 1px solid transparent;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .exam-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 6px 14px rgba(0,0,0,0.08);
+    }
+
+    .exam-card h3 {
+      font-size: 18px;
+      color: #333;
+      margin-bottom: 10px;
+      font-weight: 600;
+    }
+
+    .exam-days {
+      font-size: 36px;
+      font-weight: bold;
+      margin-bottom: 6px;
+    }
+
+    .exam-date {
+      font-size: 14px;
+      color: #666;
+    }
+
+    /* 色テーマ */
+    .private-exam {
+      background: linear-gradient(135deg, #ffeef3, #fff7fa);
+      border-color: #f8b6c7;
+      color: #c62f63;
+    }
+
+.maple-img {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  width: 90px;
+  height: auto;
+  opacity: 0.95;
+  pointer-events: none; /* クリックをブロックしないように */
+}
+
+/* .home-card に position: relative を追加して基準にする */
+.home-card {
+  position: relative;
+}
+
+
+    .public-exam {
+      background: linear-gradient(135deg, #edf6ff, #f6fbff);
+      border-color: #9ac8f5;
+      color: #3178c6;
+    }
+  `;
+  document.head.appendChild(styleTag);
+
+  // お知らせ表示
+  loadNotices();
+  renderNoticeAdminControlsIfAllowed();
+}
+
+
+
+// 管理者なら投稿UIを表示
+function renderNoticeAdminControlsIfAllowed() {
+  const ctrl = document.getElementById('notice-admin-controls');
+  if (!ctrl) return;
+  ctrl.innerHTML = '';
+
+  if (currentUser && currentUser.role === 'admin') {
+    ctrl.innerHTML = `
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <input id="new-notice-title" placeholder="タイトル" style="padding:8px;border-radius:6px;border:1px solid #d0d7dc;width:100%" />
+        <textarea id="new-notice-body" placeholder="本文" rows="4" style="padding:8px;border-radius:6px;border:1px solid #d0d7dc;width:100%"></textarea>
+        <div style="display:flex;gap:8px">
+          <button id="btn-create-notice" class="btn-plain btn-primary">投稿</button>
+          <button id="btn-refresh-notice" class="btn-plain">更新</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('btn-create-notice').addEventListener('click', createNotice);
+    document.getElementById('btn-refresh-notice').addEventListener('click', loadNotices);
+  }
+}
+
+
+// お知らせを読み込んで表示
+async function loadNotices() {
+  try {
+    const q = query(collection(db, 'notices'), orderBy('createdAt', 'desc'));
+    const snap = await getDocs(q);
+    const listEl = document.getElementById('notices-list');
+    if (!listEl) return;
+
+    if (snap.empty) {
+      listEl.innerHTML = `
+        <div style="color:#666;padding:12px;border:1px dashed #eef3f5;border-radius:8px">
+          現在お知らせはありません。
+        </div>`;
+      return;
+    }
+
+    let html = '';
+    snap.forEach(docSnap => {
+      const d = docSnap.data();
+      const createdAt = d.createdAt?.toDate ? d.createdAt.toDate() : new Date(d.createdAt);
+      const dateStr = createdAt ? createdAt.toLocaleString() : '';
+      html += `
+        <div style="padding:12px;border-bottom:1px solid #f0f4f6;margin-bottom:8px;">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div style="font-weight:700">${escapeHtml(d.title || '（無題）')}</div>
+            <div style="font-size:12px;color:#666">
+              ${escapeHtml(d.createdBy || '')}${dateStr ? ' • ' + escapeHtml(dateStr) : ''}
             </div>
           </div>
+          <div style="margin-top:8px;white-space:pre-wrap">${escapeHtml(d.body || '')}</div>
+          <div style="margin-top:8px;" data-notice-id="${docSnap.id}"></div>
+        </div>
+      `;
+    });
+
+    listEl.innerHTML = html;
+
+    // 管理者なら編集・削除ボタンを表示
+    if (currentUser && currentUser.role === 'admin') {
+      const noticeWrappers = listEl.querySelectorAll('div[data-notice-id]');
+      noticeWrappers.forEach(wrapper => {
+        const id = wrapper.getAttribute('data-notice-id');
+        wrapper.innerHTML = `
+          <div style="display:flex;gap:8px">
+            <button class="btn-plain" data-notice-action="edit" data-id="${id}">編集</button>
+            <button class="btn-plain btn-danger" data-notice-action="delete" data-id="${id}">削除</button>
+          </div>
         `;
-        document.getElementById('btn-create-notice').addEventListener('click', createNotice);
-        document.getElementById('btn-refresh-notice').addEventListener('click', loadNotices);
-      } else {
-        // 非管理者向けには何もしない（閲覧のみ）
-        ctrl.innerHTML = '';
-      }
-    }
+      });
 
-    // notices を読み込んで表示
-    async function loadNotices(){
-      try{
-        const q = query(collection(db,'notices'), orderBy('createdAt','desc'));
-        const snap = await getDocs(q);
-        const listEl = document.getElementById('notices-list');
-        if(!listEl) return;
-        if(snap.empty){
-          listEl.innerHTML = `<div style="color:#666;padding:12px;border:1px dashed #eef3f5;border-radius:8px">現在お知らせはありません。</div>`;
-          return;
-        }
-        let html = '';
-        snap.forEach(docSnap=>{
-          const d = docSnap.data();
-          const createdAt = d.createdAt && d.createdAt.toDate ? d.createdAt.toDate() : (d.createdAt ? new Date(d.createdAt) : null);
-          const dateStr = createdAt ? createdAt.toLocaleString() : '';
-          html += `<div style="padding:12px;border-bottom:1px solid #f0f4f6;margin-bottom:8px;">
-              <div style="display:flex;justify-content:space-between;align-items:center">
-                <div style="font-weight:700">${escapeHtml(d.title||'（無題）')}</div>
-                <div style="font-size:12px;color:#666">${escapeHtml(d.createdBy||'')}${dateStr? ' • ' + escapeHtml(dateStr):''}</div>
-              </div>
-              <div style="margin-top:8px;white-space:pre-wrap">${escapeHtml(d.body||'')}</div>
-              <div style="margin-top:8px;" data-notice-id="${docSnap.id}"></div>
-            </div>`;
-        });
-        listEl.innerHTML = html;
-
-        // 追加: 管理者は各お知らせに編集/削除ボタンを表示
-        if(currentUser && currentUser.role === 'admin'){
-          const noticeWrappers = listEl.querySelectorAll('div[data-notice-id]');
-          noticeWrappers.forEach(wrapper=>{
-            const id = wrapper.getAttribute('data-notice-id');
-            wrapper.innerHTML = `
-              <div style="display:flex;gap:8px">
-                <button class="btn-plain" data-notice-action="edit" data-id="${id}">編集</button>
-                <button class="btn-plain btn-danger" data-notice-action="delete" data-id="${id}">削除</button>
-              </div>
-            `;
-          });
-          // attach actions
-          Array.from(listEl.querySelectorAll('button[data-notice-action]')).forEach(b=>{
-            b.addEventListener('click', async ()=>{
-              const action = b.getAttribute('data-notice-action');
-              const id = b.getAttribute('data-id');
-              if(action === 'delete'){
-                if(confirm('お知らせを削除しますか？')){
-                  try{
-                    await deleteDoc(doc(db,'notices',id));
-                    alert('削除しました');
-                    loadNotices(); // 即時反映
-                  }catch(err){
-                    console.error(err);
-                    alert('削除に失敗しました: ' + (err.message || err));
-                  }
-                }
-              } else if(action === 'edit'){
-                // 編集フォーム表示
-                openEditNoticeDialog(id);
+      // イベント割り当て
+      Array.from(listEl.querySelectorAll('button[data-notice-action]')).forEach(b => {
+        b.addEventListener('click', async () => {
+          const action = b.getAttribute('data-notice-action');
+          const id = b.getAttribute('data-id');
+          if (action === 'delete') {
+            if (confirm('お知らせを削除しますか？')) {
+              try {
+                await deleteDoc(doc(db, 'notices', id));
+                alert('削除しました');
+                loadNotices();
+              } catch (err) {
+                console.error(err);
+                alert('削除に失敗しました: ' + (err.message || err));
               }
-            });
-          });
-        }
-      }catch(err){
-        console.error(err);
-        alert('お知らせの取得に失敗しました: ' + (err.message || err));
-      }
+            }
+          } else if (action === 'edit') {
+            openEditNoticeDialog(id);
+          }
+        });
+      });
     }
+
+  } catch (err) {
+    console.error(err);
+    alert('お知らせの取得に失敗しました: ' + (err.message || err));
+  }
+}
+
 
     // お知らせ作成
     async function createNotice(){
@@ -2663,6 +3924,7 @@ window.addEventListener("beforeunload", function (event) {
 
 </body>
 </html>
+
 
 
 
