@@ -414,82 +414,106 @@ function renderTestMenu() {
     </div>
   `;
 
-  // スタイル追加
-  const styleTag = document.createElement('style');
-  styleTag.innerHTML = `
-    /* === 全体カード === */
-    .test-main-card {
-      max-width: 1000px;
-      margin: 40px auto;
-      padding: 32px 24px;
-      background: #ffeef2;
-      border: 3px solid #f5b5c5;
-      border-radius: 20px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
+  // スタイル追加 
+const styleTag = document.createElement('style');
+styleTag.innerHTML = `
+  /* === 全体カード === */
+  .test-main-card {
+    position: relative; /* 三角形用 */
+    max-width: 1200px;
+    margin: 40px auto;
+    padding-top: 6px;  /* ← 上をギュッと詰める */
+    padding-bottom: 20px;
+    padding-left: 24px;
+    padding-right: 24px;
+    background: #fff; /* 背景を白に */
+    border: 3px solid #ccc; /* 枠線をグレーに */
+    border-radius: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    height: 265px;
+    overflow: hidden; /* 三角形がはみ出さないように */
+  }
 
-    /* === タイトル（左寄せ・大きく・見出し向きフォント） === */
-    .test-title {
-      text-align: left;
-      font-size: 36px;
-      color: #333;
-      margin-bottom: 32px;
-      font-weight: 700;
-      font-family: 'Merriweather', 'Noto Serif JP', serif;
-    }
+  /* 左上と右下の薄ピンク三角形 */
+  .test-main-card::before,
+  .test-main-card::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    z-index: 1;
+  }
 
-    /* === 3カード横並び === */
-    .test-card-row {
-      display: flex;
-      justify-content: center;
-      align-items: stretch;
-      gap: 24px;
-      flex-wrap: nowrap;
-    }
+  .test-main-card::before {
+    top: 0;
+    left: 0;
+    border-width: 60px 60px 0 0;
+    border-color: #ffeef2 transparent transparent transparent;
+  }
 
-    /* === 各カード === */
-    .test-card {
-      flex: 1 1 280px;
-      max-width: 300px;
-      background: white;
-      border: 2px solid #f5b5c5;
-      border-radius: 16px;
-      padding: 28px 16px;
-      text-align: center;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.08);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
+  .test-main-card::after {
+    bottom: 0;
+    right: 0;
+    border-width: 0 0 60px 60px;
+    border-color: transparent transparent #ffeef2 transparent;
+  }
 
-    .test-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 6px 12px rgba(0,0,0,0.15);
-    }
+  /* === タイトル（上寄せ・太く・モダンフォント） === */
+  .test-title {
+    text-align: left;
+    font-size: 36px;
+    color: #f5b5c5; /* ← 文字色を薄ピンクに */
+    margin-top: 0;    
+    margin-left: 10px  
+    margin-bottom: 16px;  
+    font-weight: 800;     
+    font-family: 'Poppins', 'Noto Sans JP', sans-serif;
+    line-height: 1.2;
+    padding-left: 50px;
+  }
 
-    .test-card h3 {
-      font-size: 20px;
-      margin-bottom: 16px;
-      color: #333;
-      font-weight: 600;
-    }
+  /* === 3カード横並び === */
+  .test-card-row {
+    display: flex;
+    justify-content: center;
+    align-items: stretch;
+    gap: 24px;
+    flex-wrap: nowrap;
+  }
 
-    .test-card button {
-      font-size: 17px;
-      padding: 12px 32px;
-      border-radius: 8px;
-    }
+  /* === 各カード === */
+  .test-card {
+    flex: 1 1 280px;
+    max-width: 300px;
+    background: white;
+    border: 2px solid #f5b5c5;
+    border-radius: 16px;
+    padding: 28px 16px;
+    text-align: center;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.08);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
 
-    /* スマホ対応（小さい画面では縦並び） */
-    @media (max-width: 768px) {
-      .test-card-row {
-        flex-wrap: wrap;
-      }
-      .test-card {
-        width: 100%;
-        max-width: none;
-      }
-    }
-  `;
-  document.head.appendChild(styleTag);
+  .test-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+  }
+
+  .test-card h3 {
+    font-size: 20px;
+    margin-bottom: 16px;
+    color: #333;
+    font-weight: 600;
+  }
+
+  .test-card button {
+    font-size: 17px;
+    padding: 12px 32px;
+    border-radius: 8px;
+  }
+`;
+document.head.appendChild(styleTag);
 
 
   // 既存の start-speed ハンドラは残す（A2 の他の場所でも拾っているが二重登録を避ける）
