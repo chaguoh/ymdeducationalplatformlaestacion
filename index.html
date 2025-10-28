@@ -508,10 +508,20 @@ styleTag.innerHTML = `
   }
 
   .test-card button {
-    font-size: 17px;
-    padding: 12px 32px;
-    border-radius: 8px;
-  }
+  font-size: 17px;
+  padding: 12px 32px;
+  border-radius: 8px;
+  background-color: #f5b5c5; /* 薄いピンク */
+  color: #fff; /* 読みやすい濃いめの文字色 */
+  border: 2px solid #ccc; /* グレーの枠線 */
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.test-card button:hover {
+  background-color: #f7c4d1; /* ほんの少し明るいピンクに変化 */
+  transform: translateY(-2px); /* クリック感を出す */
+}
 `;
 document.head.appendChild(styleTag);
 
