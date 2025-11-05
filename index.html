@@ -212,11 +212,13 @@
       <nav>
         <ul>
           <li id="menu-userinfo">ユーザー情報</li>
+          <li id="menu-activity">アクティビティ</li>
           <li id="menu-test">テスト</li>
           <li id="menu-history">過去の成績</li>
           <li id="menu-mywordlist">マイ単語リスト</li>
           <li id="menu-audio">音声コンテンツ</li>
           <li id="menu-studylog">学習の記録</li>
+          <li id="menu-adactivity" class="hidden">アクティビティ管理</li>
           <li id="menu-create" class="hidden">問題作成</li>
           <li id="menu-list" class="hidden">問題一覧</li>
           <li id="menu-grammar-admin" class="hidden">文法問題作成</li>
@@ -268,6 +270,87 @@ onAuthStateChanged(auth, async (user) => {
     myWordList = [];
   }
 });
+// ===== 保存ボタン =====
+document.addEventListener("click", async (e) => {
+  if (e.target && e.target.id === "btn-save-activity") {
+
+    const title = document.getElementById('activity-title').value.trim();
+    const deadline = document.getElementById('activity-deadline').value;
+    if (!title || !deadline) {
+      alert('アクティビティ名と提出期限は必須です');
+      return;
+    }
+
+    // Vocabulary取得
+    const vocabQuestions = Array.from(document.querySelectorAll('#vocab-questions .card')).map(div => {
+      const q = div.querySelector('.vocab-question').value.trim();
+      const choices = Array.from(div.querySelectorAll('.vocab-choice')).map(i => i.value.trim());
+      const answer = div.querySelector('.vocab-answer').value;
+      return { question: q, choices, answer };
+    });
+
+    // Grammar取得
+    const grammarQuestions = Array.from(document.querySelectorAll('#grammar-questions .card')).map(div => {
+      const type = div.querySelector('.grammar-type').value;
+      const question = div.querySelector('.grammar-question').value.trim();
+      const correct = div.querySelector('.grammar-correct').value.trim();
+      const choices = Array.from(div.querySelectorAll('.grammar-choice')).map(i => i.value.trim());
+      const answer = div.querySelector('.grammar-answer').value;
+      return { type, question, correct, choices, answer };
+    });
+
+    // Reading取得
+const readingQuestions = Array.from(document.querySelectorAll('#reading-questions > .card')).map(div => {
+  const textArea = div.querySelector('.reading-text');
+  const text = textArea ? textArea.value.trim() : ""; // 念のため安全に取得
+  const subquestions = Array.from(div.querySelectorAll('.reading-questions-list .card')).map(qDiv => {
+    const type = qDiv.querySelector('.reading-type').value;
+    const question = qDiv.querySelector('.reading-question').value.trim();
+    const correct = qDiv.querySelector('.reading-correct').value.trim();
+    const choices = Array.from(qDiv.querySelectorAll('.reading-choice')).map(i => i.value.trim());
+    const answer = qDiv.querySelector('.reading-answer').value;
+    return { type, question, correct, choices, answer };
+  });
+  return { text, subquestions };
+});
+
+
+    // 公開対象取得
+    let publishTo = 'all';
+    if (document.querySelector('#publish-container input[name="publishOption"]:checked')?.value === 'custom') {
+      const checked = Array.from(document.querySelectorAll('#custom-user-list input[type="checkbox"]:checked')).map(i => i.value);
+      if (checked.length === 0) {
+        alert('少なくとも1人は選択してください');
+        return;
+      }
+      publishTo = checked;
+    }
+
+    // Firestoreのサーバータイムスタンプ
+    const { serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.13.1/firebase-firestore.js");
+
+    // 保存用オブジェクト
+    const activityData = {
+      title,
+      deadline,
+      vocabQuestions,
+      grammarQuestions,
+      readingQuestions,
+      publishTo,
+      createdAt: serverTimestamp()
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, "activities"), activityData);
+      alert('✅ アクティビティを保存しました（ID: ' + docRef.id + '）');
+      console.log("保存完了:", activityData);
+    } catch (err) {
+      console.error(err);
+      alert('❌ 保存に失敗しました: ' + (err.message || err));
+    }
+  }
+});
+
 
     // === ユーザー固定情報 ===
     const users = {
@@ -341,12 +424,14 @@ onAuthStateChanged(auth, async (user) => {
         document.getElementById('menu-useradmin').classList.remove('hidden');
         document.getElementById('menu-grammar-admin').classList.remove('hidden');
         document.getElementById('menu-wordlist').classList.remove('hidden');
+        document.getElementById('menu-adactivity').classList.remove('hidden');
       } else {
         document.getElementById('menu-create').classList.add('hidden');
         document.getElementById('menu-list').classList.add('hidden');
         document.getElementById('menu-useradmin').classList.add('hidden');
         document.getElementById('menu-grammar-admin').classList.add('hidden');
         document.getElementById('menu-wordlist').classList.add('hidden');
+        document.getElementById('menu-adactivity').classList.add('hidden');
       }
       // start session countdown
       startSessionCountdown();
@@ -387,6 +472,302 @@ document.getElementById('menu-wordlist').addEventListener('click', ()=> {
 document.getElementById('menu-mywordlist').addEventListener('click', ()=> {
   if (!testActive) renderMyWordList();
 });
+document.getElementById('menu-adactivity').addEventListener('click', () => {
+    renderActivityAdmin();
+});
+
+
+function renderActivityAdmin() {
+    document.getElementById('content').innerHTML = `
+        <div class="card">
+            <h2>アクティビティ管理</h2>
+            <p>ここから宿題（アクティビティ）の作成、提出期限設定、提出状況の確認ができます。</p>
+            <div style="margin-top:20px;">
+                <button id="btn-create-activity" class="btn-plain btn-primary">アクティビティ作成</button>
+                <button id="btn-view-submissions" class="btn-plain">提出状況確認</button>
+            </div>
+            <div id="activity-admin-area" style="margin-top:20px;"></div>
+        </div>
+    `;
+
+    // ボタンにイベント追加
+    document.getElementById('btn-create-activity').addEventListener('click', () => {
+        renderCreateActivity();
+    });
+
+    document.getElementById('btn-view-submissions').addEventListener('click', () => {
+        renderActivitySubmissions();
+    });
+}
+
+
+// アクティビティ作成 //
+function renderCreateActivity() {
+    document.getElementById('activity-admin-area').innerHTML = `
+        <h3 style="font-family:sans-serif; margin-bottom:16px;">新しいアクティビティ作成</h3>
+        
+        <div class="card" style="padding:16px; margin-bottom:16px;">
+            <label>アクティビティ名:</label>
+            <input id="activity-title" type="text" style="width:100%; padding:10px; border-radius:8px; border:1px solid #ccc; margin-bottom:12px; font-size:16px;">
+            
+            <label>提出期限:</label>
+            <input id="activity-deadline" type="date" style="padding:10px; border-radius:8px; border:1px solid #ccc; font-size:16px;">
+        </div>
+
+        <!-- Vocabulary -->
+        <div class="card" style="padding:16px; margin-bottom:16px;">
+            <h4>1. Vocabulary</h4>
+            <label>問題数:</label>
+            <input id="vocab-count" type="number" min="1" value="20" style="width:60px; padding:6px; margin-bottom:8px;">
+            <div id="vocab-questions"></div>
+            <button id="btn-add-vocab" class="btn-plain" style="margin-top:8px;">問題を追加</button>
+        </div>
+
+        <!-- Grammar -->
+        <div class="card" style="padding:16px; margin-bottom:16px;">
+            <h4>2. Grammar</h4>
+            <label>問題数:</label>
+            <input id="grammar-count" type="number" min="1" value="10" style="width:60px; padding:6px; margin-bottom:8px;">
+            <div id="grammar-questions"></div>
+            <button id="btn-add-grammar" class="btn-plain" style="margin-top:8px;">問題を追加</button>
+        </div>
+
+        <!-- Reading -->
+        <div class="card" style="padding:16px; margin-bottom:16px;">
+            <h4>3. Reading</h4>
+            <label>問題数:</label>
+            <input id="reading-count" type="number" min="1" value="5" style="width:60px; padding:6px; margin-bottom:8px;">
+            <div id="reading-questions"></div>
+            <button id="btn-add-reading" class="btn-plain" style="margin-top:8px;">問題を追加</button>
+        </div>
+
+        <!-- 公開対象 -->
+        <div class="card" style="padding:16px; margin-bottom:16px;" id="publish-container">
+            <h3>公開対象</h3>
+            <label><input type="radio" name="publishOption" value="all" checked> 全員に公開</label>
+            <label><input type="radio" name="publishOption" value="custom"> 個別ユーザーを選択</label>
+            <div id="custom-user-list" style="margin-top:8px; display:none; max-height:200px; overflow-y:auto; border:1px solid #ccc; padding:6px; border-radius:6px; background:#fff;">
+                ${Object.keys(users)
+                  .filter(u => users[u].role !== "admin")
+                  .map(u => `<label style="display:block; margin-bottom:4px;"><input type="checkbox" value="${u}"> ${u}</label>`).join('')}
+            </div>
+        </div>
+
+        <button id="btn-save-activity" class="btn-plain btn-primary" style="padding:12px 24px; border-radius:8px; font-size:16px;">アクティビティを保存</button>
+    `;
+
+    // 公開対象ラジオ切替
+    const radios = document.querySelectorAll('#publish-container input[name="publishOption"]');
+    const customList = document.getElementById('custom-user-list');
+    radios.forEach(radio => {
+        radio.addEventListener('change', () => {
+            customList.style.display = radio.value === 'custom' ? 'block' : 'none';
+        });
+    });
+
+    // ===== Vocabulary問題追加 =====
+    document.getElementById('btn-add-vocab').addEventListener('click', () => {
+        const container = document.getElementById('vocab-questions');
+        const index = container.children.length + 1;
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.style.padding = '12px';
+        div.style.marginBottom = '8px';
+        div.style.background = '#fff';
+        div.style.boxShadow = '0 2px 6px rgba(0,0,0,0.08)';
+        div.innerHTML = `
+            <p>問題 ${index}:</p>
+            <textarea placeholder="問題文" class="vocab-question" style="width:100%; height:60px; padding:8px; margin-bottom:6px;"></textarea>
+            <div style="display:flex; gap:8px; margin-bottom:6px;">
+                <input placeholder="選択肢A" class="vocab-choice" style="flex:1; padding:6px;">
+                <input placeholder="選択肢B" class="vocab-choice" style="flex:1; padding:6px;">
+            </div>
+            <div style="display:flex; gap:8px; margin-bottom:6px;">
+                <input placeholder="選択肢C" class="vocab-choice" style="flex:1; padding:6px;">
+                <input placeholder="選択肢D" class="vocab-choice" style="flex:1; padding:6px;">
+            </div>
+            <label>正解:</label>
+            <select class="vocab-answer" style="padding:6px;">
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+            </select>
+        `;
+        container.appendChild(div);
+    });
+
+    // ===== Grammar問題追加 =====
+    document.getElementById('btn-add-grammar').addEventListener('click', () => {
+        const container = document.getElementById('grammar-questions');
+        const index = container.children.length + 1;
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.style.padding = '12px';
+        div.style.marginBottom = '8px';
+        div.style.background = '#fff';
+        div.style.boxShadow = '0 2px 6px rgba(0,0,0,0.08)';
+        div.innerHTML = `
+            <p>問題 ${index}:</p>
+            <select class="grammar-type" style="margin-bottom:6px; padding:6px;">
+                <option value="multiple">四択</option>
+                <option value="fill">適語補充</option>
+                <option value="order">並べ替え</option>
+            </select>
+            <div class="grammar-input-area" style="margin-top:6px;">
+                <textarea placeholder="問題文" class="grammar-question" style="width:100%; height:80px; padding:8px; margin-bottom:6px;"></textarea>
+
+                <div class="grammar-choices" style="display:flex; gap:8px; margin-bottom:6px;">
+                    <input placeholder="選択肢A" class="grammar-choice" style="flex:1; padding:6px;">
+                    <input placeholder="選択肢B" class="grammar-choice" style="flex:1; padding:6px;">
+                    <input placeholder="選択肢C" class="grammar-choice" style="flex:1; padding:6px;">
+                    <input placeholder="選択肢D" class="grammar-choice" style="flex:1; padding:6px;">
+                </div>
+
+                <label>正答入力:</label>
+                <input type="text" class="grammar-correct" placeholder="正しい答え" style="width:100%; padding:6px; margin-bottom:6px;">
+                <label>正解（四択の場合）:</label>
+                <select class="grammar-answer" style="padding:6px;">
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                </select>
+            </div>
+        `;
+        container.appendChild(div);
+
+        const typeSelect = div.querySelector('.grammar-type');
+        const inputArea = div.querySelector('.grammar-input-area');
+        const choices = inputArea.querySelector('.grammar-choices');
+        const answerSelect = inputArea.querySelector('.grammar-answer');
+        const correctInput = inputArea.querySelector('.grammar-correct');
+
+        typeSelect.addEventListener('change', () => {
+            const type = typeSelect.value;
+            if(type === 'multiple') {
+                choices.style.display = 'flex';
+                answerSelect.style.display = 'inline-block';
+                correctInput.style.display = 'none';
+            } else {
+                choices.style.display = 'none';
+                answerSelect.style.display = 'none';
+                correctInput.style.display = 'block';
+                correctInput.placeholder = type === 'fill' ? "空欄に入る正しい語を入力" : "正しい順序をカンマ区切りで入力";
+            }
+        });
+        typeSelect.dispatchEvent(new Event('change'));
+    });
+
+    // ===== Reading問題追加 =====
+    document.getElementById('btn-add-reading').addEventListener('click', () => {
+        const container = document.getElementById('reading-questions');
+        const index = container.children.length + 1;
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.style.padding = '12px';
+        div.style.marginBottom = '8px';
+        div.style.background = '#fff';
+        div.style.boxShadow = '0 2px 6px rgba(0,0,0,0.08)';
+        
+        div.innerHTML = `
+            <p>英文 ${index}:</p>
+            <textarea placeholder="英文（600語程度）" class="reading-text" style="width:100%; height:400px; padding:8px; margin-bottom:8px;"></textarea>
+            <div class="reading-questions-list"></div>
+            <button class="btn-plain btn-add-reading-question" style="margin-top:6px;">設問を追加</button>
+        `;
+        container.appendChild(div);
+
+        const questionsList = div.querySelector('.reading-questions-list');
+        const addBtn = div.querySelector('.btn-add-reading-question');
+
+        addBtn.addEventListener('click', () => {
+            const qIndex = questionsList.children.length + 1;
+            const qDiv = document.createElement('div');
+            qDiv.className = 'card';
+            qDiv.style.padding = '8px';
+            qDiv.style.marginBottom = '6px';
+            qDiv.style.background = '#f9f9f9';
+            qDiv.innerHTML = `
+                <p>設問 ${qIndex}:</p>
+                <select class="reading-type" style="margin-bottom:6px; padding:6px;">
+                    <option value="multiple">四択</option>
+                    <option value="input">入力式</option>
+                </select>
+                <textarea placeholder="設問文" class="reading-question" style="width:100%; height:60px; padding:6px; margin-bottom:6px;"></textarea>
+
+                <div class="reading-choices" style="display:flex; gap:8px; margin-bottom:6px;">
+                    <input placeholder="選択肢A" class="reading-choice" style="flex:1; padding:6px;">
+                    <input placeholder="選択肢B" class="reading-choice" style="flex:1; padding:6px;">
+                    <input placeholder="選択肢C" class="reading-choice" style="flex:1; padding:6px;">
+                    <input placeholder="選択肢D" class="reading-choice" style="flex:1; padding:6px;">
+                </div>
+
+                <label>正答入力:</label>
+                <input type="text" class="reading-correct" placeholder="正しい答え" style="width:100%; padding:6px; margin-bottom:6px;">
+
+                <label>正解（四択の場合）:</label>
+                <select class="reading-answer" style="padding:6px;">
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                    <option value="C">C</option>
+                    <option value="D">D</option>
+                </select>
+            `;
+            questionsList.appendChild(qDiv);
+
+            const typeSelect = qDiv.querySelector('.reading-type');
+            const choicesDiv = qDiv.querySelector('.reading-choices');
+            const answerSelect = qDiv.querySelector('.reading-answer');
+            const correctInput = qDiv.querySelector('.reading-correct');
+
+            typeSelect.addEventListener('change', () => {
+                if(typeSelect.value === 'multiple') {
+                    choicesDiv.style.display = 'flex';
+                    answerSelect.style.display = 'inline-block';
+                    correctInput.style.display = 'none';
+                } else {
+                    choicesDiv.style.display = 'none';
+                    answerSelect.style.display = 'none';
+                    correctInput.style.display = 'block';
+                    correctInput.placeholder = "正しい答えを入力";
+                }
+            });
+            typeSelect.dispatchEvent(new Event('change'));
+        });
+    });
+
+   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     // ===== テストメニュー（雛形） =====
 // ===== テストメニュー（ピンク枠・横一列版） =====
@@ -1181,7 +1562,7 @@ async function saveWordTestResult(score, totalQuestions, answersArray = []) {
 
 
 // renderTestResult — 結果画面を描画し、保存を呼ぶ
-function renderTestResult() {
+async function renderTestResult() {
   // streak 非表示（あれば）
   const streakEl = document.getElementById('streak-display');
   if (streakEl) streakEl.style.display = 'none';
@@ -1191,6 +1572,18 @@ function renderTestResult() {
     saveWordTestResult(score, testWords.length);
   } catch (e) {
     console.error('saveWordTestResult 呼び出しエラー:', e);
+  }
+
+// ✅ BNP加算処理を追加（結果画面切り替え時に一度だけ）
+  try {
+    if (typeof addBnp === 'function') {
+      await addBnp(score);
+      console.log('✅ BNPにスコアを加算しました');
+    } else {
+      console.warn('⚠️ addBnp 関数が見つかりませんでした');
+    }
+  } catch (e) {
+    console.warn('addBnp at end failed', e);
   }
 
   // 結果画面を描画
@@ -3067,25 +3460,7 @@ function renderGrammarResult(score, elapsedSec, answersRecord){
     // ===== 初表示はログイン画面（何も変更しない） =====
     // end of module
 
-    // ★★ ここから追加: 「start-speed」ボタンを確実に拾うハンドラ（最小追加部分） ★★
-    document.addEventListener('click', async (e) => {
-      try {
-        if (e.target && e.target.id === 'start-speed') {
-          console.log('[debug] start-speed clicked');
-          if (confirm('テストを開始します。制限時間は15分です。')) {
-            if (typeof startTest === 'function') {
-              await startTest();
-            } else {
-              console.error('startTest is not defined');
-              alert('内部エラー: startTestが定義されていません。コンソールを確認してください。');
-            }
-          }
-        }
-      } catch (err) {
-        console.error('start-speed handler error', err);
-        alert('テスト開始処理でエラーが発生しました: ' + (err && err.message ? err.message : err));
-      }
-    });
+  
     // ★★ 追加ここまで ★★
 
     /* ============== ここから新規追加: ホーム画面とお知らせ機能 ============== */
